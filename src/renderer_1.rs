@@ -1,5 +1,5 @@
-use crate::math::matrix;
-use crate::raw::{make_raw, make_raw_slice, Raw};
+use crate::math;
+use crate::raw::Raw;
 use crate::windowed_device::WindowedDevice;
 use std::vec::Vec;
 use std::{iter, mem};
@@ -10,34 +10,10 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-impl Raw for [Vertex] {
-    fn get_raw(&self) -> &[u8] {
-        unsafe { make_raw_slice(self) }
-    }
-}
-
-impl Raw for matrix::Matrix4x4<f32> {
-    fn get_raw(&self) -> &[u8] {
-        unsafe { make_raw(self) }
-    }
-}
-
-impl Raw for [matrix::Matrix4x4<f32>] {
-    fn get_raw(&self) -> &[u8] {
-        unsafe { make_raw_slice(self) }
-    }
-}
-
-impl Raw for [Circle] {
-    fn get_raw(&self) -> &[u8] {
-        unsafe { make_raw_slice(self) }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 #[repr(C, packed)]
 struct Circle {
-    pos: matrix::Vector2<f32>, // Center position
+    pos: math::Vector2<f32>, // Center position
     radius: f32,
 }
 
@@ -61,7 +37,7 @@ impl Circle {
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<matrix::Vector2<f32>>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
                 },
@@ -72,11 +48,11 @@ impl Circle {
 
 struct Vertex {
     #[allow(dead_code)]
-    pos: matrix::Vector2<f32>,
+    pos: math::Vector2<f32>,
     // TODO: May not be needed. Looks like it could be done by passing the vertex position
     // into the fragment buffer.
     #[allow(dead_code)]
-    uv_coords: matrix::Vector2<f32>,
+    uv_coords: math::Vector2<f32>,
 }
 
 impl Vertex {
@@ -91,7 +67,7 @@ impl Vertex {
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
-                    offset: mem::size_of::<matrix::Vector2<f32>>() as wgpu::BufferAddress,
+                    offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
                     shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
@@ -102,20 +78,20 @@ impl Vertex {
 
 const CIRCLE_VERTICES: &[Vertex] = &[
     Vertex {
-        pos: matrix::Vector2 { x: -1.0, y: 1.0 },
-        uv_coords: matrix::Vector2 { x: -1.0, y: 1.0 },
+        pos: math::Vector2 { x: -1.0, y: 1.0 },
+        uv_coords: math::Vector2 { x: -1.0, y: 1.0 },
     },
     Vertex {
-        pos: matrix::Vector2 { x: 1.0, y: 1.0 },
-        uv_coords: matrix::Vector2 { x: 1.0, y: 1.0 },
+        pos: math::Vector2 { x: 1.0, y: 1.0 },
+        uv_coords: math::Vector2 { x: 1.0, y: 1.0 },
     },
     Vertex {
-        pos: matrix::Vector2 { x: -1.0, y: -1.0 },
-        uv_coords: matrix::Vector2 { x: -1.0, y: -1.0 },
+        pos: math::Vector2 { x: -1.0, y: -1.0 },
+        uv_coords: math::Vector2 { x: -1.0, y: -1.0 },
     },
     Vertex {
-        pos: matrix::Vector2 { x: 1.0, y: -1.0 },
-        uv_coords: matrix::Vector2 { x: 1.0, y: -1.0 },
+        pos: math::Vector2 { x: 1.0, y: -1.0 },
+        uv_coords: math::Vector2 { x: 1.0, y: -1.0 },
     },
 ];
 
@@ -143,7 +119,7 @@ impl DrawObjects {
     pub fn circle(&mut self, x: f32, y: f32, radius: f32) {
         // println!("Add circle; x: {}, y: {}, z: {}", x, y, radius);
         self.circles.push(Circle {
-            pos: matrix::Vector2 { x, y },
+            pos: math::Vector2 { x, y },
             radius,
         });
     }
@@ -176,7 +152,8 @@ impl Renderer {
             });
 
         let size = wd.window.inner_size();
-        let perspective_matrix = matrix::ortho(size.width as u16, size.height as u16);
+        let perspective_matrix: math::Matrix4x4<f32> =
+            math::ortho(size.width as u16, size.height as u16);
         let perspective_buffer = wd
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -374,7 +351,8 @@ impl Renderer {
             //     "perspective matrix [in resize handler] size in bytes: {}",
             //     self.perspective_matrix.get_raw().len()
             // );
-            let perspective_matrix = matrix::ortho(new_size.width as u16, new_size.height as u16);
+            let perspective_matrix: math::Matrix4x4<f32> =
+                math::ortho(new_size.width as u16, new_size.height as u16);
             // let perspective_matrix: cgmath::Matrix4<f32> = OPENGL_TO_WGPU_MATRIX
             //     * cgmath::ortho(
             //         new_size.width as f32 / 2.0,
