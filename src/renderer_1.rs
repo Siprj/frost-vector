@@ -359,10 +359,10 @@ impl Renderer {
     }
 }
 
-pub async fn run<F, F2>(event_handler: F, redraw: F2)
+pub async fn run<F, F2>(event_handler: F, mut redraw: F2)
 where
     F: 'static + Fn(&WindowEvent<'_>) -> bool,
-    F2: 'static + Fn(&mut DrawObjects),
+    F2: 'static + FnMut(&mut DrawObjects),
 {
     let event_loop = EventLoop::new();
     let window = WindowBuilder::new().build(&event_loop).unwrap();
