@@ -1,6 +1,6 @@
 use std::ops::{Add, Div, Neg};
 
-use crate::raw::{make_raw, make_raw_slice, Raw};
+use crate::raw::Gpu;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 #[repr(C, packed)]
@@ -168,6 +168,8 @@ pub struct Matrix4x4<T> {
     pub c3r3: T,
 }
 
+impl<T: Sized + Gpu> Gpu for Matrix4x4<T> {}
+
 pub trait Zero<T> {
     fn zero() -> T;
 }
@@ -224,36 +226,5 @@ where
         c1r3: T::zero(),
         c2r3: T::zero(),
         c3r3: T::one(),
-        // c0r0: T::two() / T::from(width),
-        // c0r1: T::zero(),
-        // c0r2: T::zero(),
-        // c0r3: -T::one(),
-
-        // c1r0: T::zero(),
-        // c1r1: T::two() / T::from(height),
-        // c1r2: T::zero(),
-        // c1r3: -T::one(),
-
-        // c2r0: T::zero(),
-        // c2r1: T::zero(),
-        // c2r2: T::one(),
-        // c2r3: T::zero(),
-
-        // c3r0: T::zero(),
-        // c3r1: T::zero(),
-        // c3r2: T::zero(),
-        // c3r3: T::one(),
     }
 }
-
-// impl Raw for Matrix4x4<f32> {
-//     fn get_raw(&self) -> &[u8] {
-//         unsafe { make_raw(self) }
-//     }
-// }
-
-// impl Raw for [Matrix4x4<f32>] {
-//     fn get_raw(&self) -> &[u8] {
-//         unsafe { make_raw_slice(self) }
-//     }
-// }

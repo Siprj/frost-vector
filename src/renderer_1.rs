@@ -1,5 +1,5 @@
 use crate::math;
-use crate::raw::Raw;
+use crate::raw::{Gpu, Raw};
 use crate::windowed_device::WindowedDevice;
 use std::vec::Vec;
 use std::{iter, mem};
@@ -17,13 +17,7 @@ struct Circle {
     radius: f32,
 }
 
-#[rustfmt::skip]
-pub const OPENGL_TO_WGPU_MATRIX: cgmath::Matrix4<f32> = cgmath::Matrix4::new(
-    1.0, 0.0, 0.0, 0.0,
-    0.0, 1.0, 0.0, 0.0,
-    0.0, 0.0, 0.5, 0.0,
-    0.0, 0.0, 0.5, 1.0,
-);
+impl Gpu for Circle {}
 
 impl Circle {
     fn buffer_description<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -54,6 +48,8 @@ struct Vertex {
     #[allow(dead_code)]
     uv_coords: math::Vector2<f32>,
 }
+
+impl Gpu for Vertex {}
 
 impl Vertex {
     fn buffer_description<'a>() -> wgpu::VertexBufferLayout<'a> {
@@ -353,16 +349,6 @@ impl Renderer {
             // );
             let perspective_matrix: math::Matrix4x4<f32> =
                 math::ortho(new_size.width as u16, new_size.height as u16);
-            // let perspective_matrix: cgmath::Matrix4<f32> = OPENGL_TO_WGPU_MATRIX
-            //     * cgmath::ortho(
-            //         new_size.width as f32 / 2.0,
-            //         new_size.width as f32 / 2.0,
-            //         new_size.height as f32 / 2.0,
-            //         new_size.height as f32 / 2.0,
-            //         0.1,
-            //         100.0,
-            //     );
-            // let perspective_matrix_bla: [[f32; 4]; 4] = perspective_matrix.into();
             println!("perspective_matrix_bla: {:?}", perspective_matrix);
             self.windowed_device.queue.write_buffer(
                 &self.perspective_buffer,
