@@ -4,12 +4,13 @@ use crate::renderer_1;
 
 pub async fn run() {
     let mut circles = Vec::new();
-    // for _ in 0..10 {
     for _ in 0..100 {
         circles.push((
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 100_f32,
+            1_f32 + rand::random::<f32>() * 5_f32,
+            // 400_f32, 400_f32, 100_f32, 10_f32,
         ));
     }
     let monotonic_time = Instant::now();
@@ -20,8 +21,7 @@ pub async fn run() {
         |_| false,
         move |draw| {
             let frame_start = monotonic_time.elapsed();
-            // println!("run handler!");
-            circles.iter().for_each(|c| draw.circle(c.0, c.1, c.2));
+            circles.iter().for_each(|c| draw.circle(c.0, c.1, c.2, c.3));
             let frame_end = monotonic_time.elapsed();
             println!(
                 "loop fsp: {:?}",

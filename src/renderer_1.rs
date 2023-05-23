@@ -15,6 +15,7 @@ use winit::{
 struct Circle {
     pos: math::Vector2<f32>, // Center position
     radius: f32,
+    brush_size: f32,
 }
 
 impl Gpu for Circle {}
@@ -35,6 +36,12 @@ impl Circle {
                     shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
                 },
+                wgpu::VertexAttribute {
+                    offset: (mem::size_of::<math::Vector2<f32>>() + mem::size_of::<f32>())
+                        as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32,
+                },
             ],
         }
     }
@@ -43,8 +50,6 @@ impl Circle {
 struct Vertex {
     #[allow(dead_code)]
     pos: math::Vector2<f32>,
-    // TODO: May not be needed. Looks like it could be done by passing the vertex position
-    // into the fragment buffer.
     #[allow(dead_code)]
     uv_coords: math::Vector2<f32>,
 }
@@ -94,11 +99,62 @@ const CIRCLE_VERTICES: &[Vertex] = &[
 const CIRCLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
 
 struct Rectangle {
-    x: f32,
-    y: f32,
+    pos: math::Vector2<f32>,
     w: f32,
     h: f32,
+    brush_size: f32,
 }
+
+impl Rectangle {
+    fn buffer_description<'a>() -> wgpu::VertexBufferLayout<'a> {
+        wgpu::VertexBufferLayout {
+            array_stride: mem::size_of::<Circle>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Instance,
+            attributes: &[
+                wgpu::VertexAttribute {
+                    offset: 0,
+                    shader_location: 2,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
+                    shader_location: 3,
+                    format: wgpu::VertexFormat::Float32x2,
+                },
+                wgpu::VertexAttribute {
+                    offset: (mem::size_of::<math::Vector2<f32>>()
+                        + mem::size_of::<math::Vector2<f32>>())
+                        as wgpu::BufferAddress,
+                    shader_location: 4,
+                    format: wgpu::VertexFormat::Float32,
+                },
+            ],
+        }
+    }
+}
+
+impl Gpu for Rectangle {}
+
+const RECTANGLE_VERTICES: &[Vertex] = &[
+    Vertex {
+        pos: math::Vector2 { x: -1.0, y: 1.0 },
+        uv_coords: math::Vector2 { x: -1.0, y: 1.0 },
+    },
+    Vertex {
+        pos: math::Vector2 { x: 1.0, y: 1.0 },
+        uv_coords: math::Vector2 { x: 1.0, y: 1.0 },
+    },
+    Vertex {
+        pos: math::Vector2 { x: -1.0, y: -1.0 },
+        uv_coords: math::Vector2 { x: -1.0, y: -1.0 },
+    },
+    Vertex {
+        pos: math::Vector2 { x: 1.0, y: -1.0 },
+        uv_coords: math::Vector2 { x: 1.0, y: -1.0 },
+    },
+];
+
+const RECTANGLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
 
 pub struct DrawObjects {
     circles: Vec<Circle>,
@@ -112,15 +168,20 @@ impl DrawObjects {
             rectangles: Vec::new(),
         }
     }
-    pub fn circle(&mut self, x: f32, y: f32, radius: f32) {
-        // println!("Add circle; x: {}, y: {}, z: {}", x, y, radius);
+    pub fn circle(&mut self, x: f32, y: f32, radius: f32, brush_size: f32) {
         self.circles.push(Circle {
             pos: math::Vector2 { x, y },
             radius,
+            brush_size,
         });
     }
-    pub fn rectangle(&mut self, x: f32, y: f32, w: f32, h: f32) {
-        self.rectangles.push(Rectangle { x, y, w, h });
+    pub fn rectangle(&mut self, x: f32, y: f32, w: f32, h: f32, brush_size: f32) {
+        self.rectangles.push(Rectangle {
+            pos: math::Vector2 { x, y },
+            w,
+            h,
+            brush_size,
+        });
     }
 }
 
@@ -130,6 +191,9 @@ struct Renderer {
     pub circle_vertex_buffer: wgpu::Buffer,
     pub circle_index_buffer: wgpu::Buffer,
     pub circle_pipeline: wgpu::RenderPipeline,
+    pub rectangle_vertex_buffer: wgpu::Buffer,
+    pub rectangle_index_buffer: wgpu::Buffer,
+    pub rectangle_pipeline: wgpu::RenderPipeline,
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
 }
@@ -238,10 +302,6 @@ impl Renderer {
                 multiview: None,
             });
 
-        // println!(
-        //     "circle vertices size in bytes: {}",
-        //     perspective_matrix.get_raw().len()
-        // );
         let circle_vertex_buffer =
             wd.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -262,12 +322,84 @@ impl Renderer {
                 usage: wgpu::BufferUsages::INDEX,
             });
 
+        let rectangle_pipeline =
+            wd.device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: Some("Render Pipeline"),
+                    layout: Some(&render_pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &shader,
+                        entry_point: "vs_main",
+                        buffers: &[
+                            Vertex::buffer_description(),
+                            Rectangle::buffer_description(),
+                        ],
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &shader,
+                        entry_point: "fs_main",
+                        targets: &[Some(wgpu::ColorTargetState {
+                            format: wd.config.format,
+                            blend: Some(wgpu::BlendState {
+                                color: wgpu::BlendComponent::REPLACE,
+                                alpha: wgpu::BlendComponent::REPLACE,
+                            }),
+                            write_mask: wgpu::ColorWrites::ALL,
+                        })],
+                    }),
+                    primitive: wgpu::PrimitiveState {
+                        topology: wgpu::PrimitiveTopology::TriangleList,
+                        strip_index_format: None,
+                        front_face: wgpu::FrontFace::Ccw,
+                        cull_mode: Some(wgpu::Face::Back),
+                        // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                        // or Features::POLYGON_MODE_POINT
+                        polygon_mode: wgpu::PolygonMode::Fill,
+                        // Requires Features::DEPTH_CLIP_CONTROL
+                        unclipped_depth: false,
+                        // Requires Features::CONSERVATIVE_RASTERIZATION
+                        conservative: false,
+                    },
+                    depth_stencil: None,
+                    multisample: wgpu::MultisampleState {
+                        count: 1,
+                        mask: !0,
+                        alpha_to_coverage_enabled: false,
+                    },
+                    // If the pipeline will be used with a multiview render pass, this
+                    // indicates how many array layers the attachments will have.
+                    multiview: None,
+                });
+
+        let rectangle_vertex_buffer =
+            wd.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("rectangle Vertex Buffer"),
+                    contents: RECTANGLE_VERTICES.get_raw(),
+                    usage: wgpu::BufferUsages::VERTEX,
+                });
+
+        println!(
+            "rectangle indexs size in bytes: {}",
+            RECTANGLE_INDICES.get_raw().len()
+        );
+        let rectangle_index_buffer =
+            wd.device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("rectangle Index Buffer"),
+                    contents: RECTANGLE_INDICES.get_raw(),
+                    usage: wgpu::BufferUsages::INDEX,
+                });
+
         Self {
             windowed_device: wd,
             drawable_objects: DrawObjects::new(),
             circle_pipeline,
             circle_vertex_buffer,
             circle_index_buffer,
+            rectangle_vertex_buffer,
+            rectangle_index_buffer,
+            rectangle_pipeline,
             perspective_bind_group,
             perspective_buffer,
         }
@@ -275,34 +407,8 @@ impl Renderer {
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
-        self.render_circles(&mut encoder, &view)?;
-        self.windowed_device
-            .queue
-            .submit(iter::once(encoder.finish()));
-        output.present();
-
-        self.drawable_objects.circles.clear();
-        // TODO: render rectangles....
-        // self.drawable_objects.rectangles.clear();
-        Ok(())
-    }
-
-    fn render_circles(
-        &mut self,
-        encoder: &mut wgpu::CommandEncoder,
-        view: &wgpu::TextureView,
-    ) -> Result<(), wgpu::SurfaceError> {
-        let circle_instances_buffer =
-            self.windowed_device
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Circle Index Buffer"),
-                    contents: self.drawable_objects.circles.get_raw(),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
-
         let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Circle Render Pass"),
+            label: Some("Rectangle Render Pass"),
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &view,
                 resolve_target: None,
@@ -319,6 +425,73 @@ impl Renderer {
             depth_stencil_attachment: None,
         });
 
+        let circle_instances_buffer =
+            self.windowed_device
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Circle Index Buffer"),
+                    contents: self.drawable_objects.circles.get_raw(),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        self.render_circles(&mut render_pass, &circle_instances_buffer)?;
+        let rectangle_instances_buffer =
+            self.windowed_device
+                .device
+                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                    label: Some("Rectangle Index Buffer"),
+                    contents: self.drawable_objects.rectangles.get_raw(),
+                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                });
+        self.render_rectangles(&mut render_pass, &rectangle_instances_buffer)?;
+
+        drop(render_pass);
+
+        self.windowed_device
+            .queue
+            .submit(iter::once(encoder.finish()));
+        output.present();
+
+        self.drawable_objects.circles.clear();
+        self.drawable_objects.rectangles.clear();
+        Ok(())
+    }
+
+    fn render_rectangles<'a, 'b, 'c>(
+        &'c mut self,
+        render_pass: &'a mut wgpu::RenderPass<'a>,
+        rectangle_instances_buffer: &'b wgpu::Buffer,
+    ) -> Result<(), wgpu::SurfaceError>
+    where
+        'c: 'a,
+        'c: 'b,
+        'b: 'a,
+    {
+        render_pass.set_pipeline(&self.rectangle_pipeline);
+        render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
+        render_pass.set_vertex_buffer(0, self.rectangle_vertex_buffer.slice(..));
+        render_pass.set_vertex_buffer(1, rectangle_instances_buffer.slice(..));
+        render_pass.set_index_buffer(
+            self.rectangle_index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        render_pass.draw_indexed(
+            0..(RECTANGLE_INDICES.len() as u32),
+            0,
+            0..(self.drawable_objects.rectangles.len() as u32),
+        );
+        Ok(())
+    }
+
+    fn render_circles<'a, 'b, 'c>(
+        &'c mut self,
+        render_pass: &'a mut wgpu::RenderPass<'a>,
+        circle_instances_buffer: &'b wgpu::Buffer,
+    ) -> Result<(), wgpu::SurfaceError>
+    where
+        'b: 'a,
+        'c: 'a,
+        'c: 'b,
+    {
         render_pass.set_pipeline(&self.circle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.circle_vertex_buffer.slice(..));
@@ -343,10 +516,6 @@ impl Renderer {
                 .surface
                 .configure(&self.windowed_device.device, &self.windowed_device.config);
 
-            // println!(
-            //     "perspective matrix [in resize handler] size in bytes: {}",
-            //     self.perspective_matrix.get_raw().len()
-            // );
             let perspective_matrix: math::Matrix4x4<f32> =
                 math::ortho(new_size.width as u16, new_size.height as u16);
             println!("perspective_matrix_bla: {:?}", perspective_matrix);
