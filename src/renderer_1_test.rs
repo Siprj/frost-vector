@@ -10,9 +10,20 @@ pub async fn run() {
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 100_f32,
             1_f32 + rand::random::<f32>() * 5_f32,
-            // 400_f32, 400_f32, 100_f32, 10_f32,
         ));
     }
+
+    let mut rectangles = Vec::new();
+    for _ in 0..100 {
+        rectangles.push((
+            rand::random::<f32>() * 800_f32,
+            rand::random::<f32>() * 800_f32,
+            rand::random::<f32>() * 100_f32,
+            rand::random::<f32>() * 400_f32,
+            1_f32 + rand::random::<f32>() * 5_f32,
+        ));
+    }
+
     let monotonic_time = Instant::now();
     println!("timestamp: {}", monotonic_time.elapsed().as_nanos());
 
@@ -22,6 +33,9 @@ pub async fn run() {
         move |draw| {
             let frame_start = monotonic_time.elapsed();
             circles.iter().for_each(|c| draw.circle(c.0, c.1, c.2, c.3));
+            rectangles
+                .iter()
+                .for_each(|r| draw.rectangle(r.0, r.1, r.2, r.3, r.4));
             let frame_end = monotonic_time.elapsed();
             println!(
                 "loop fsp: {:?}",

@@ -202,12 +202,21 @@ impl Renderer {
     pub async fn new(window: Window) -> Self {
         let wd = WindowedDevice::new(window).await;
 
-        let shader = wd
+        let circle_shader = wd
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
                 label: Some("renderer_1_circle_shader"),
                 source: wgpu::ShaderSource::Wgsl(
                     include_str!("shaders/renderer_1_circle.wgsl").into(),
+                ),
+            });
+
+        let rectangle_shader = wd
+            .device
+            .create_shader_module(wgpu::ShaderModuleDescriptor {
+                label: Some("renderer_1_rectangle_shader"),
+                source: wgpu::ShaderSource::Wgsl(
+                    include_str!("shaders/renderer_1_rectangle.wgsl").into(),
                 ),
             });
 
@@ -259,15 +268,15 @@ impl Renderer {
         let circle_pipeline = wd
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: Some("Render Pipeline"),
+                label: Some("Circle Render Pipeline"),
                 layout: Some(&render_pipeline_layout),
                 vertex: wgpu::VertexState {
-                    module: &shader,
+                    module: &circle_shader,
                     entry_point: "vs_main",
                     buffers: &[Vertex::buffer_description(), Circle::buffer_description()],
                 },
                 fragment: Some(wgpu::FragmentState {
-                    module: &shader,
+                    module: &circle_shader,
                     entry_point: "fs_main",
                     targets: &[Some(wgpu::ColorTargetState {
                         format: wd.config.format,
@@ -325,10 +334,10 @@ impl Renderer {
         let rectangle_pipeline =
             wd.device
                 .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: Some("Render Pipeline"),
+                    label: Some("Rectangle Render Pipeline"),
                     layout: Some(&render_pipeline_layout),
                     vertex: wgpu::VertexState {
-                        module: &shader,
+                        module: &rectangle_shader,
                         entry_point: "vs_main",
                         buffers: &[
                             Vertex::buffer_description(),
@@ -336,7 +345,7 @@ impl Renderer {
                         ],
                     },
                     fragment: Some(wgpu::FragmentState {
-                        module: &shader,
+                        module: &rectangle_shader,
                         entry_point: "fs_main",
                         targets: &[Some(wgpu::ColorTargetState {
                             format: wd.config.format,
@@ -406,25 +415,6 @@ impl Renderer {
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
-        let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-            label: Some("Rectangle Render Pass"),
-            color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                view: &view,
-                resolve_target: None,
-                ops: wgpu::Operations {
-                    load: wgpu::LoadOp::Clear(wgpu::Color {
-                        r: 0.0,
-                        g: 0.0,
-                        b: 0.0,
-                        a: 1.0,
-                    }),
-                    store: true,
-                },
-            })],
-            depth_stencil_attachment: None,
-        });
-
         let circle_instances_buffer =
             self.windowed_device
                 .device
@@ -433,7 +423,7 @@ impl Renderer {
                     contents: self.drawable_objects.circles.get_raw(),
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 });
-        self.render_circles(&mut render_pass, &circle_instances_buffer)?;
+
         let rectangle_instances_buffer =
             self.windowed_device
                 .device
@@ -442,9 +432,31 @@ impl Renderer {
                     contents: self.drawable_objects.rectangles.get_raw(),
                     usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                 });
-        self.render_rectangles(&mut render_pass, &rectangle_instances_buffer)?;
 
-        drop(render_pass);
+        let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
+        {
+            let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+                label: Some("Rectangle Render Pass"),
+                color_attachments: &[Some(wgpu::RenderPassColorAttachment {
+                    view: &view,
+                    resolve_target: None,
+                    ops: wgpu::Operations {
+                        load: wgpu::LoadOp::Clear(wgpu::Color {
+                            r: 0.0,
+                            g: 0.0,
+                            b: 0.0,
+                            a: 1.0,
+                        }),
+                        store: true,
+                    },
+                })],
+                depth_stencil_attachment: None,
+            });
+
+            self.render_circles(&mut render_pass, &circle_instances_buffer)?;
+
+            self.render_rectangles(&mut render_pass, &rectangle_instances_buffer)?;
+        }
 
         self.windowed_device
             .queue
@@ -456,15 +468,16 @@ impl Renderer {
         Ok(())
     }
 
-    fn render_rectangles<'a, 'b, 'c>(
-        &'c mut self,
-        render_pass: &'a mut wgpu::RenderPass<'a>,
+    fn render_rectangles<'a, 'b, 'c, 'd>(
+        &'c self,
+        render_pass: &'a mut wgpu::RenderPass<'d>,
         rectangle_instances_buffer: &'b wgpu::Buffer,
     ) -> Result<(), wgpu::SurfaceError>
     where
+        'b: 'a,
         'c: 'a,
         'c: 'b,
-        'b: 'a,
+        'b: 'd,
     {
         render_pass.set_pipeline(&self.rectangle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
@@ -482,15 +495,16 @@ impl Renderer {
         Ok(())
     }
 
-    fn render_circles<'a, 'b, 'c>(
-        &'c mut self,
-        render_pass: &'a mut wgpu::RenderPass<'a>,
+    fn render_circles<'a, 'b, 'c, 'd>(
+        &'c self,
+        render_pass: &'a mut wgpu::RenderPass<'d>,
         circle_instances_buffer: &'b wgpu::Buffer,
     ) -> Result<(), wgpu::SurfaceError>
     where
         'b: 'a,
         'c: 'a,
         'c: 'b,
+        'b: 'd,
     {
         render_pass.set_pipeline(&self.circle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);

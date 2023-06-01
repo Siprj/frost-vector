@@ -38,17 +38,17 @@ fn vs_main(
     out.clip_position = perspective * world_position;
     out.uv_coords = model.uv_coords;
     out.brush_size = instance.brush_size / instance.size.x;
-    out.brush_scale_compenstaion = size.x / size.y;
+    out.brush_scale_compensation = instance.size.x / instance.size.y;
 
     return out;
 }
 
 // Fragment shader
 
-fn rectangle_sdf(uv_pos: vec2<f32>) -> f32{
-    float2 componentWiseEdgeDistance = abs(samplePosition) - 1.0;
-    float outsideDistance = length(max(componentWiseEdgeDistance, 0.0));
-    float insideDistance = min(max(componentWiseEdgeDistance.x, componentWiseEdgeDistance.y), 0.0);
+fn rectangle_sdf(uv_pos: vec2<f32>) -> f32 {
+    let componentWiseEdgeDistance = abs(uv_pos) - 1.0;
+    let outsideDistance = length(max(componentWiseEdgeDistance, vec2(0.0, 0.0)));
+    let insideDistance = min(max(componentWiseEdgeDistance.x, componentWiseEdgeDistance.y), 0.0);
     return outsideDistance + insideDistance;
 }
 
@@ -56,10 +56,11 @@ fn rectangle_sdf(uv_pos: vec2<f32>) -> f32{
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
     let rectangle_sd: f32 = rectangle_sdf(in.uv_coords);
 
-    let compensated_sd = vec2(rectangle_sd.x, rectangle.y) - vec2(1.0 - brush_size.x, 1.0 - brusn_size.y * in.brush_scale_compensation);
+    // let compensated_sd = vec2(rectangle_sd, rectangle.y) - vec2(1.0 - brush_size.x, 1.0 - brusn_size.y * in.brush_scale_compensation);
     
-    if compensated_sd < 0.0 {
-        discard;
-    }
+    // if compensated_sd < 0.0 {
+    // if rectangle_sd < 0.0 {
+    //     discard;
+    // }
     return vec4<f32>(1.0, 1.0, 0.0, 1.0);
 }
