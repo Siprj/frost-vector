@@ -45,7 +45,7 @@ fn vs_main(
 
 // Fragment shader
 
-fn rectangle_sdf(uv_pos: vec2<f32>) -> f32 {
+fn rectangle_sdf(uv_pos: vec2<f32>, ) -> f32 {
     let componentWiseEdgeDistance = abs(uv_pos) - 1.0;
     let outsideDistance = length(max(componentWiseEdgeDistance, vec2(0.0, 0.0)));
     let insideDistance = min(max(componentWiseEdgeDistance.x, componentWiseEdgeDistance.y), 0.0);
@@ -54,13 +54,11 @@ fn rectangle_sdf(uv_pos: vec2<f32>) -> f32 {
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
-    let rectangle_sd: f32 = rectangle_sdf(in.uv_coords);
+    let compensated_uv = vec2(in.uv_coords.x, abs(in.uv_coords.y) + (in.brush_size * in.brush_scale_compensation));
+    let rectangle_sd: f32 = rectangle_sdf(compensated_uv);
 
-    // let compensated_sd = vec2(rectangle_sd, rectangle.y) - vec2(1.0 - brush_size.x, 1.0 - brusn_size.y * in.brush_scale_compensation);
-    
-    // if compensated_sd < 0.0 {
-    // if rectangle_sd < 0.0 {
-    //     discard;
-    // }
+    if rectangle_sd < (0.0 - in.brush_size){
+        discard;
+    }
     return vec4<f32>(1.0, 1.0, 0.0, 1.0);
 }

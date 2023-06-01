@@ -3,26 +3,27 @@ use std::time::{Duration, Instant};
 use crate::renderer_1;
 
 pub async fn run() {
-    let mut circles = Vec::new();
-    for _ in 0..100 {
-        circles.push((
-            rand::random::<f32>() * 800_f32,
-            rand::random::<f32>() * 800_f32,
-            rand::random::<f32>() * 100_f32,
-            1_f32 + rand::random::<f32>() * 5_f32,
-        ));
-    }
+    let mut circles: Vec<(f32, f32, f32, f32)> = Vec::new();
+    // for _ in 0..100 {
+    //     circles.push((
+    //         rand::random::<f32>() * 800_f32,
+    //         rand::random::<f32>() * 800_f32,
+    //         rand::random::<f32>() * 100_f32,
+    //         1_f32 + rand::random::<f32>() * 5_f32,
+    //     ));
+    // }
 
     let mut rectangles = Vec::new();
-    for _ in 0..100 {
-        rectangles.push((
-            rand::random::<f32>() * 800_f32,
-            rand::random::<f32>() * 800_f32,
-            rand::random::<f32>() * 100_f32,
-            rand::random::<f32>() * 400_f32,
-            1_f32 + rand::random::<f32>() * 5_f32,
-        ));
-    }
+    // for _ in 0..100 {
+    //     rectangles.push((
+    //         rand::random::<f32>() * 800_f32,
+    //         rand::random::<f32>() * 800_f32,
+    //         rand::random::<f32>() * 100_f32,
+    //         rand::random::<f32>() * 400_f32,
+    //         1_f32 + rand::random::<f32>() * 5_f32,
+    //     ));
+    // }
+    rectangles.push((400_f32, 500_f32, 100_f32, 300_f32, 10_f32));
 
     let monotonic_time = Instant::now();
     println!("timestamp: {}", monotonic_time.elapsed().as_nanos());
