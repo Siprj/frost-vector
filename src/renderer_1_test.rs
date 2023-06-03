@@ -38,14 +38,14 @@ pub async fn run() {
                 .iter()
                 .for_each(|r| draw.rectangle(r.0, r.1, r.2, r.3, r.4));
             let frame_end = monotonic_time.elapsed();
-            println!(
-                "loop fsp: {:?}",
-                1_f32 / (frame_end - previous_end_time).as_secs_f32()
-            );
-            previous_end_time = frame_end;
-            println!("timestamp: {:?}", frame_end - frame_start);
-            println!("end_frame_time: {:?}", frame_end);
-            println!("fps: {:?}", 1_f32 / (frame_end - frame_start).as_secs_f32());
+            // println!(
+            //     "loop fsp: {:?}",
+            //     1_f32 / (frame_end - previous_end_time).as_secs_f32()
+            // );
+            // previous_end_time = frame_end;
+            // println!("timestamp: {:?}", frame_end - frame_start);
+            // println!("end_frame_time: {:?}", frame_end);
+            // println!("fps: {:?}", 1_f32 / (frame_end - frame_start).as_secs_f32());
         },
     )
     .await
