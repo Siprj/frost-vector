@@ -1,7 +1,7 @@
 use crate::math;
 use crate::raw::{Gpu, Raw};
 use crate::windowed_device::WindowedDevice;
-use notify::{Error, RecommendedWatcher, RecursiveMode, Watcher};
+use notify::{Error, RecursiveMode, Watcher};
 use std::process::exit;
 use std::sync::mpsc::{self, channel, Receiver};
 use std::vec::Vec;
@@ -102,9 +102,13 @@ const CIRCLE_VERTICES: &[Vertex] = &[
 const CIRCLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
 
 struct Rectangle {
+    #[allow(unused)]
     pos: math::Vector2<f32>,
+    #[allow(unused)]
     w: f32,
+    #[allow(unused)]
     h: f32,
+    #[allow(unused)]
     brush_size: f32,
 }
 
@@ -200,6 +204,10 @@ struct Renderer {
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
     pub file_event_receiver: Receiver<Result<notify::Event, Error>>,
+
+    // We need to the norifier needs to exist as long as the renderer exists,
+    // so we get the filesystem events.
+    #[allow(unused)]
     watcher: notify::INotifyWatcher,
 }
 
