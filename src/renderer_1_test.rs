@@ -4,7 +4,7 @@ use crate::renderer_1;
 
 pub async fn run() {
     let mut circles: Vec<(f32, f32, f32, f32)> = Vec::new();
-    for _ in 0..100 {
+    for _ in 0..100000 {
         circles.push((
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 800_f32,
@@ -14,7 +14,7 @@ pub async fn run() {
     }
 
     let mut rectangles = Vec::new();
-    for _ in 0..100 {
+    for _ in 0..100000 {
         rectangles.push((
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 800_f32,
@@ -43,6 +43,7 @@ pub async fn run() {
             );
             previous_end_time = frame_end;
             println!("timestamp: {:?}", frame_end - frame_start);
+            println!("start_frame_time: {:?}", frame_start);
             println!("end_frame_time: {:?}", frame_end);
             println!("fps: {:?}", 1_f32 / (frame_end - frame_start).as_secs_f32());
         },

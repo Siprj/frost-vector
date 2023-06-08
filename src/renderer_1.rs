@@ -204,6 +204,8 @@ struct Renderer {
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
     pub file_event_receiver: Receiver<Result<notify::Event, Error>>,
+    pub circle_instances_buffer: wgpu::Buffer,
+    pub rectangle_instances_buffer: wgpu::Buffer,
 
     // We need to the norifier needs to exist as long as the renderer exists,
     // so we get the filesystem events.
@@ -427,6 +429,19 @@ impl Renderer {
         watcher
             .watch(&watched_path, RecursiveMode::Recursive)
             .unwrap();
+        let circle_instances_buffer = wd.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Circle Index Buffer"),
+            size: 100000 * wgpu::COPY_BUFFER_ALIGNMENT,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let rectangle_instances_buffer = wd.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Rectangle Index Buffer"),
+            size: 100000 * wgpu::COPY_BUFFER_ALIGNMENT,
+            usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
 
         Self {
             windowed_device: wd,
@@ -441,27 +456,61 @@ impl Renderer {
             perspective_buffer,
             file_event_receiver: receiver,
             watcher,
+            circle_instances_buffer,
+            rectangle_instances_buffer,
         }
     }
 
     fn render(&mut self) -> Result<(), wgpu::SurfaceError> {
-        let circle_instances_buffer =
-            self.windowed_device
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Circle Index Buffer"),
-                    contents: self.drawable_objects.circles.get_raw(),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
+        if self.drawable_objects.circles.get_raw().len()
+            > self.circle_instances_buffer.size() as usize
+        {
+            println!("BAD path circle");
+            self.circle_instances_buffer =
+                self.windowed_device
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("Circle Index Buffer"),
+                        contents: self.drawable_objects.circles.get_raw(),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+        } else {
+            println!("HAPPY path circle");
+            // self.windowed_device.queue.write_buffer(
+            //     &self.circle_instances_buffer,
+            //     0,
+            //     self.drawable_objects.circles.get_raw(),
+            // );
+        }
+        println!(
+            "circles data size: {}",
+            self.drawable_objects.circles.get_raw().len()
+        );
+        println!(
+            "rectangles data size: {}",
+            self.drawable_objects.rectangles.get_raw().len()
+        );
 
-        let rectangle_instances_buffer =
-            self.windowed_device
-                .device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Rectangle Index Buffer"),
-                    contents: self.drawable_objects.rectangles.get_raw(),
-                    usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
-                });
+        if self.drawable_objects.rectangles.get_raw().len()
+            > self.rectangle_instances_buffer.size() as usize
+        {
+            println!("BAD path rectangle");
+            self.rectangle_instances_buffer =
+                self.windowed_device
+                    .device
+                    .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                        label: Some("rectangle Index Buffer"),
+                        contents: self.drawable_objects.rectangles.get_raw(),
+                        usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
+                    });
+        } else {
+            println!("HAPPY path rectangle");
+            // self.windowed_device.queue.write_buffer(
+            //     &self.rectangle_instances_buffer,
+            //     0,
+            //     self.drawable_objects.rectangles.get_raw(),
+            // );
+        }
 
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
         {
@@ -483,9 +532,9 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            self.render_circles(&mut render_pass, &circle_instances_buffer)?;
+            self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
 
-            self.render_rectangles(&mut render_pass, &rectangle_instances_buffer)?;
+            self.render_rectangles(&mut render_pass, &self.rectangle_instances_buffer)?;
         }
 
         self.windowed_device
