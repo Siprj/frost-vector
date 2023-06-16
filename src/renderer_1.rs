@@ -210,7 +210,7 @@ struct Renderer {
     // We need to the norifier needs to exist as long as the renderer exists,
     // so we get the filesystem events.
     #[allow(unused)]
-    watcher: notify::INotifyWatcher,
+    watcher: notify::RecommendedWatcher,
 }
 
 impl Renderer {
