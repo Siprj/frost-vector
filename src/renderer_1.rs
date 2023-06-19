@@ -4,6 +4,7 @@ use crate::windowed_device::WindowedDevice;
 use notify::{Error, RecursiveMode, Watcher};
 use std::process::exit;
 use std::sync::mpsc::{self, channel, Receiver};
+use std::time::Instant;
 use std::vec::Vec;
 use std::{env, iter, mem};
 use wgpu::util::DeviceExt;
@@ -466,6 +467,8 @@ impl Renderer {
             > self.circle_instances_buffer.size() as usize
         {
             println!("BAD path circle");
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
             self.circle_instances_buffer =
                 self.windowed_device
                     .device
@@ -474,13 +477,19 @@ impl Renderer {
                         contents: self.drawable_objects.circles.get_raw(),
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
+            let end = monotonic_time.elapsed();
+            println!("time circle copy: {}", (end - start).as_secs_f32())
         } else {
             println!("HAPPY path circle");
-            // self.windowed_device.queue.write_buffer(
-            //     &self.circle_instances_buffer,
-            //     0,
-            //     self.drawable_objects.circles.get_raw(),
-            // );
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
+            self.windowed_device.queue.write_buffer(
+                &self.circle_instances_buffer,
+                0,
+                self.drawable_objects.circles.get_raw(),
+            );
+            let end = monotonic_time.elapsed();
+            println!("time circle copy: {}", (end - start).as_secs_f32())
         }
         println!(
             "circles data size: {}",
@@ -495,6 +504,8 @@ impl Renderer {
             > self.rectangle_instances_buffer.size() as usize
         {
             println!("BAD path rectangle");
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
             self.rectangle_instances_buffer =
                 self.windowed_device
                     .device
@@ -503,13 +514,19 @@ impl Renderer {
                         contents: self.drawable_objects.rectangles.get_raw(),
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
+            let end = monotonic_time.elapsed();
+            println!("time rectangle copy: {}", (end - start).as_secs_f32())
         } else {
             println!("HAPPY path rectangle");
-            // self.windowed_device.queue.write_buffer(
-            //     &self.rectangle_instances_buffer,
-            //     0,
-            //     self.drawable_objects.rectangles.get_raw(),
-            // );
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
+            self.windowed_device.queue.write_buffer(
+                &self.rectangle_instances_buffer,
+                0,
+                self.drawable_objects.rectangles.get_raw(),
+            );
+            let end = monotonic_time.elapsed();
+            println!("time rectangle copy: {}", (end - start).as_secs_f32())
         }
 
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
