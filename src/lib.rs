@@ -14,6 +14,7 @@ pub mod renderer_1;
 pub mod renderer_1_test;
 mod texture;
 pub mod windowed_device;
+mod statistics;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(

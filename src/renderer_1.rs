@@ -13,6 +13,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
+use crate::statistics::Statistics;
 
 #[derive(Debug, PartialEq)]
 #[repr(C, packed)]
@@ -856,5 +857,6 @@ where
             }
             _ => {}
         }
+        Statistics::publish_row();
     });
 }
