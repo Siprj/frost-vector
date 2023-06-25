@@ -13,7 +13,7 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use crate::statistics::Statistics;
+use crate::statistics;
 
 #[derive(Debug, PartialEq)]
 #[repr(C, packed)]
@@ -336,10 +336,6 @@ impl Renderer {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
-        println!(
-            "circle indexs size in bytes: {}",
-            CIRCLE_INDICES.get_raw().len()
-        );
         let circle_index_buffer = wd
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -405,10 +401,6 @@ impl Renderer {
                     usage: wgpu::BufferUsages::VERTEX,
                 });
 
-        println!(
-            "rectangle indexs size in bytes: {}",
-            RECTANGLE_INDICES.get_raw().len()
-        );
         let rectangle_index_buffer =
             wd.device
                 .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -467,7 +459,6 @@ impl Renderer {
         if self.drawable_objects.circles.get_raw().len()
             > self.circle_instances_buffer.size() as usize
         {
-            println!("BAD path circle");
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
             self.circle_instances_buffer =
@@ -479,9 +470,8 @@ impl Renderer {
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
             let end = monotonic_time.elapsed();
-            println!("time circle copy: {}", (end - start).as_secs_f32())
+            statistics::report_value("bad_circle_path", (end - start).as_secs_f32().to_string());
         } else {
-            println!("HAPPY path circle");
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
             self.windowed_device.queue.write_buffer(
@@ -490,21 +480,14 @@ impl Renderer {
                 self.drawable_objects.circles.get_raw(),
             );
             let end = monotonic_time.elapsed();
-            println!("time circle copy: {}", (end - start).as_secs_f32())
+            statistics::report_value("good_circle_path", (end - start).as_secs_f32().to_string());
         }
-        println!(
-            "circles data size: {}",
-            self.drawable_objects.circles.get_raw().len()
-        );
-        println!(
-            "rectangles data size: {}",
-            self.drawable_objects.rectangles.get_raw().len()
-        );
+        statistics::report_value("circle_data_size", self.drawable_objects.circles.get_raw().len().to_string());
+        statistics::report_value("rectangle_data_size", self.drawable_objects.rectangles.get_raw().len().to_string());
 
         if self.drawable_objects.rectangles.get_raw().len()
             > self.rectangle_instances_buffer.size() as usize
         {
-            println!("BAD path rectangle");
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
             self.rectangle_instances_buffer =
@@ -516,9 +499,8 @@ impl Renderer {
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
             let end = monotonic_time.elapsed();
-            println!("time rectangle copy: {}", (end - start).as_secs_f32())
+            statistics::report_value("bad_rectangle_path", (end - start).as_secs_f32().to_string());
         } else {
-            println!("HAPPY path rectangle");
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
             self.windowed_device.queue.write_buffer(
@@ -527,7 +509,7 @@ impl Renderer {
                 self.drawable_objects.rectangles.get_raw(),
             );
             let end = monotonic_time.elapsed();
-            println!("time rectangle copy: {}", (end - start).as_secs_f32())
+            statistics::report_value("good_rectangle_path", (end - start).as_secs_f32().to_string());
         }
 
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
@@ -555,10 +537,25 @@ impl Renderer {
             self.render_rectangles(&mut render_pass, &self.rectangle_instances_buffer)?;
         }
 
-        self.windowed_device
+        {
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
+            self.windowed_device.queue.on_submitted_work_done(move || statistics::report_value("end_queue_submit_time", monotonic_time.elapsed().as_secs_f32().to_string()));
+            self.windowed_device
             .queue
             .submit(iter::once(encoder.finish()));
-        output.present();
+            let end = monotonic_time.elapsed();
+            statistics::report_value("queue_submit", (end - start).as_secs_f32().to_string());
+            statistics::report_value("start_queue_submit_time", start.as_secs_f32().to_string());
+        }
+
+        {
+            let monotonic_time = Instant::now();
+            let start = monotonic_time.elapsed();
+            output.present();
+            let end = monotonic_time.elapsed();
+            statistics::report_value("output_present", (end - start).as_secs_f32().to_string());
+        }
 
         self.drawable_objects.circles.clear();
         self.drawable_objects.rectangles.clear();
@@ -629,7 +626,7 @@ impl Renderer {
 
             let perspective_matrix: math::Matrix4x4<f32> =
                 math::ortho(new_size.width as u16, new_size.height as u16);
-            println!("perspective_matrix_bla: {:?}", perspective_matrix);
+            // println!("perspective_matrix_bla: {:?}", perspective_matrix);
             self.windowed_device.queue.write_buffer(
                 &self.perspective_buffer,
                 0,
@@ -821,7 +818,9 @@ where
                                     ..
                                 },
                             ..
-                        } => *control_flow = ControlFlow::Exit,
+                        } => {
+    statistics::print_header();
+                            *control_flow = ControlFlow::Exit},
                         WindowEvent::Resized(physical_size) => {
                             renderer.resize(*physical_size);
                         }
@@ -837,6 +836,7 @@ where
                 if window_id == renderer.windowed_device.window.id() =>
             {
                 redraw(&mut renderer.drawable_objects);
+                statistics::publish_row();
                 match renderer.render() {
                     Ok(_) => {}
                     // Reconfigure the surface if it's lost or outdated
@@ -857,6 +857,5 @@ where
             }
             _ => {}
         }
-        Statistics::publish_row();
     });
 }

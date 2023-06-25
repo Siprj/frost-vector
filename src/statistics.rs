@@ -1,21 +1,39 @@
+use std::cell::UnsafeCell;
 use std::vec::Vec;
-use std::sync::OnceLock;
 
-pub struct StatisticsInternal {
+
+struct Statistics {
     header: Vec<String>,
     row: Vec<String>
 }
 
-static mut STATISTICS: OnceLock<StatisticsInternal> = OnceLock::new();
+unsafe impl Sync for Statistics {}
 
-fn ensure_statistics() -> &'static StatisticsInternal {
-    STATISTICS.get_or_init(|| StatisticsInternal::new())
+struct Bla<T> {
+    value: UnsafeCell<T>
 }
 
+impl<T> Bla<T> {
+    #[inline(always)]
+    const fn new(data: T) -> Bla<T>{
+        Bla {
+            value: UnsafeCell::new(data)
+        }
+    }
 
-impl StatisticsInternal {
-    pub const fn new() -> StatisticsInternal {
-        StatisticsInternal {
+    #[inline(always)]
+    pub fn get(&self) -> *mut T {
+        self.value.get()
+    }
+}
+
+unsafe impl<T: Sync> Sync for Bla<T> {}
+
+static STATISTICS: Bla<Statistics> = Bla::new(Statistics::new());
+
+impl Statistics {
+    pub const fn new() -> Statistics {
+        Statistics {
             header: Vec::new(),
             row: Vec::new(),
         }
@@ -40,16 +58,27 @@ impl StatisticsInternal {
             }
         }
     }
+
+    fn print_header(&self) {
+        for v in self.header.iter() {
+            print!("{}, ", v);
+        }
+        println!("");
+    }
 }
 
-pub struct Statistics {}
+fn ensure_statistic<'a>() -> &'a mut Statistics {
+    unsafe {&mut *STATISTICS.get()}
+}
 
-impl Statistics {
-    pub fn publish_row() {
-        ensure_statistics().publish_row();
-    }
+pub fn publish_row() {
+    ensure_statistic().publish_row();
+}
 
-    pub fn report_value(name: String, value: String) {
-        ensure_statistics().report_value(name, value);
-    }
+pub fn report_value(name: &str, value: String) {
+    ensure_statistic().report_value(name.to_string(), value.clone());
+}
+
+pub fn print_header() {
+    ensure_statistic().print_header();
 }
