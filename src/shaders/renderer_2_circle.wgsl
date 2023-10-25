@@ -27,8 +27,8 @@ fn vs_main(
     var out: VertexOutput;
 
     let model_matrix = mat4x4<f32>(
-        vec4(1.0, 0.0, 0.0, 0.0),
-        vec4(0.0, 1.0, 0.0, 0.0),
+        vec4(1.0, 0.0, 0.0, 0.0), 
+        vec4(0.0, 1.0, 0.0, 0.0), 
         vec4(0.0, 0.0, 1.0, 0.0),
         vec4(instance.position.x, instance.position.y, 0.0, 1.0)
     );

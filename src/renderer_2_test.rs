@@ -2,7 +2,7 @@ use std::time::{Duration, Instant};
 
 use winit::event_loop::EventLoop;
 
-use crate::renderer_1;
+use crate::renderer_2;
 use crate::statistics;
 
 pub async fn run(event_loop: &mut EventLoop<()>, circles: &Vec<(f32, f32, f32, f32)>, rectangles: &Vec<(f32, f32, f32, f32, f32)>) {
@@ -10,7 +10,7 @@ pub async fn run(event_loop: &mut EventLoop<()>, circles: &Vec<(f32, f32, f32, f
     let mut previous_end_time = Duration::from_secs(0);
     let local_circles = circles.clone();
     let local_rectangles = rectangles.clone();
-    renderer_1::run(
+    renderer_2::run(
         event_loop,
         |_| false,
         move |draw| {

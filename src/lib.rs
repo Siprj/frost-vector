@@ -12,9 +12,12 @@ mod math;
 pub mod raw;
 pub mod renderer_1;
 pub mod renderer_1_test;
+pub mod renderer_2;
+pub mod renderer_2_test;
+mod statistics;
 mod texture;
 pub mod windowed_device;
-mod statistics;
+mod constants;
 
 const NUM_INSTANCES_PER_ROW: u32 = 10;
 const INSTANCE_DISPLACEMENT: cgmath::Vector3<f32> = cgmath::Vector3::new(

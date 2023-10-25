@@ -1,3 +1,4 @@
+use crate::constants::NUMBER_OF_FRAMES;
 use crate::math;
 use crate::raw::{Gpu, Raw};
 use crate::statistics;
@@ -15,7 +16,6 @@ use winit::{
     event_loop::{ControlFlow, EventLoop},
     window::{Window, WindowBuilder},
 };
-use crate::constants::NUMBER_OF_FRAMES;
 
 #[derive(Debug, PartialEq)]
 #[repr(C, packed)]
@@ -105,6 +105,7 @@ const CIRCLE_VERTICES: &[Vertex] = &[
 
 const CIRCLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
 
+#[derive(Debug)]
 struct Rectangle {
     #[allow(unused)]
     pos: math::Vector2<f32>,
@@ -124,19 +125,19 @@ impl Rectangle {
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
-                    shader_location: 3,
+                    shader_location: 2,
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: (mem::size_of::<math::Vector2<f32>>()
                         + mem::size_of::<math::Vector2<f32>>())
                         as wgpu::BufferAddress,
-                    shader_location: 4,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
                 },
             ],
@@ -145,27 +146,6 @@ impl Rectangle {
 }
 
 impl Gpu for Rectangle {}
-
-const RECTANGLE_VERTICES: &[Vertex] = &[
-    Vertex {
-        pos: math::Vector2 { x: -1.0, y: 1.0 },
-        uv_coords: math::Vector2 { x: -1.0, y: 1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: 1.0, y: 1.0 },
-        uv_coords: math::Vector2 { x: 1.0, y: 1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: -1.0, y: -1.0 },
-        uv_coords: math::Vector2 { x: -1.0, y: -1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: 1.0, y: -1.0 },
-        uv_coords: math::Vector2 { x: 1.0, y: -1.0 },
-    },
-];
-
-const RECTANGLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
 
 pub struct DrawObjects {
     circles: Vec<Circle>,
@@ -202,8 +182,6 @@ struct Renderer {
     pub circle_vertex_buffer: wgpu::Buffer,
     pub circle_index_buffer: wgpu::Buffer,
     pub circle_pipeline: wgpu::RenderPipeline,
-    pub rectangle_vertex_buffer: wgpu::Buffer,
-    pub rectangle_index_buffer: wgpu::Buffer,
     pub rectangle_pipeline: wgpu::RenderPipeline,
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
@@ -224,18 +202,18 @@ impl Renderer {
         let circle_shader = wd
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("renderer_1_circle_shader"),
+                label: Some("renderer_2_circle_shader"),
                 source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/renderer_1_circle.wgsl").into(),
+                    include_str!("shaders/renderer_2_circle.wgsl").into(),
                 ),
             });
 
         let rectangle_shader = wd
             .device
             .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("renderer_1_rectangle_shader"),
+                label: Some("renderer_2_rectangle_shader"),
                 source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/renderer_1_rectangle.wgsl").into(),
+                    include_str!("shaders/renderer_2_rectangle.wgsl").into(),
                 ),
             });
 
@@ -355,7 +333,6 @@ impl Renderer {
                         module: &rectangle_shader,
                         entry_point: "vs_main",
                         buffers: &[
-                            Vertex::buffer_description(),
                             Rectangle::buffer_description(),
                         ],
                     },
@@ -395,22 +372,6 @@ impl Renderer {
                     multiview: None,
                 });
 
-        let rectangle_vertex_buffer =
-            wd.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("rectangle Vertex Buffer"),
-                    contents: RECTANGLE_VERTICES.get_raw(),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
-
-        let rectangle_index_buffer =
-            wd.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("rectangle Index Buffer"),
-                    contents: RECTANGLE_INDICES.get_raw(),
-                    usage: wgpu::BufferUsages::INDEX,
-                });
-
         // Create a channel to receive the events.
         let (sender, receiver) = channel();
 
@@ -445,8 +406,6 @@ impl Renderer {
             circle_pipeline,
             circle_vertex_buffer,
             circle_index_buffer,
-            rectangle_vertex_buffer,
-            rectangle_index_buffer,
             rectangle_pipeline,
             perspective_bind_group,
             perspective_buffer,
@@ -546,7 +505,7 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
+            // self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
 
             self.render_rectangles(&mut render_pass, &self.rectangle_instances_buffer)?;
         }
@@ -621,15 +580,10 @@ impl Renderer {
     {
         render_pass.set_pipeline(&self.rectangle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.rectangle_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, rectangle_instances_buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.rectangle_index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
-        render_pass.draw_indexed(
-            0..(RECTANGLE_INDICES.len() as u32),
-            0,
+        render_pass.set_vertex_buffer(0, rectangle_instances_buffer.slice(..));
+        render_pass.draw(
+            0..24,
+            //0..6,
             0..(self.drawable_objects.rectangles.len() as u32),
         );
         Ok(())
@@ -683,12 +637,12 @@ impl Renderer {
                 );
 
                 let mut circle_shader_path = env::current_dir().unwrap();
-                circle_shader_path.push("src/shaders/renderer_1_circle.wgsl");
+                circle_shader_path.push("src/shaders/renderer_2_circle.wgsl");
                 let circle_shader_content = std::fs::read_to_string(circle_shader_path).unwrap();
 
                 let circle_shader = self.windowed_device.device.create_shader_module(
                     wgpu::ShaderModuleDescriptor {
-                        label: Some("renderer_1_circle_shader"),
+                        label: Some("renderer_2_circle_shader"),
                         source: wgpu::ShaderSource::Wgsl(circle_shader_content.into()),
                     },
                 );
@@ -740,13 +694,13 @@ impl Renderer {
                 );
 
                 let mut rectangle_shader_path = env::current_dir().unwrap();
-                rectangle_shader_path.push("src/shaders/renderer_1_rectangle.wgsl");
+                rectangle_shader_path.push("src/shaders/renderer_2_rectangle.wgsl");
                 let rectangle_shader_content =
                     std::fs::read_to_string(rectangle_shader_path).unwrap();
 
                 let rectangle_shader = self.windowed_device.device.create_shader_module(
                     wgpu::ShaderModuleDescriptor {
-                        label: Some("renderer_1_rectangle_shader"),
+                        label: Some("renderer_2_rectangle_shader"),
                         source: wgpu::ShaderSource::Wgsl(rectangle_shader_content.into()),
                     },
                 );
@@ -759,7 +713,6 @@ impl Renderer {
                             module: &rectangle_shader,
                             entry_point: "vs_main",
                             buffers: &[
-                                Vertex::buffer_description(),
                                 Rectangle::buffer_description(),
                             ],
                         },
