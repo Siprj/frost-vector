@@ -1,10 +1,13 @@
 use std::collections::{HashMap, VecDeque};
+use std::fs;
+use std::io::Write;
 use std::path::Path;
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::sync::{Mutex, OnceLock};
 use std::vec::Vec;
-use serde::ser::{Serialize, Serializer, SerializeStruct};
+use std::convert::AsRef;
 
+#[derive(Debug, serde::Serialize)]
 struct Entry {
     frame: usize,
     value: f64
@@ -15,7 +18,7 @@ struct DataStream {
 }
 
 #[derive(Copy, Debug, Clone)]
-struct DataStreamId { id: usize}
+pub struct DataStreamId { id: usize}
 
 static STATISTICS_FRAME: AtomicUsize = AtomicUsize::new(0); // current frame
 
@@ -27,18 +30,6 @@ struct Statistics {
 impl Statistics {
     fn new() -> Self {
         Statistics {id_by_name: HashMap::new(), data_streams: Vec::new()}
-    }
-
-    fn get_stream_from_name(&mut self, name: &str) -> &mut DataStream {
-        match self.id_by_name.get(name) {
-            Some(index) => &mut self.data_streams[index.id],
-            None => {
-                let id = self.data_streams.len();
-                self.id_by_name.insert(name.into(), DataStreamId { id });
-                self.data_streams.push(DataStream{ stream: VecDeque::new()});
-                &mut self.data_streams[id]
-            },
-        }
     }
 
     fn get_data_stream_id(&mut self, name: &str) -> DataStreamId {
@@ -72,7 +63,7 @@ impl Statistics {
 
 static STATISTICS: OnceLock<Mutex<Statistics>> = OnceLock::new(); // current frame
 
-pub fn get_initialized_statistics<'a>() -> &'a Mutex<Statistics> {
+fn get_initialized_statistics<'a>() -> &'a Mutex<Statistics> {
     STATISTICS.get_or_init(|| Mutex::new(Statistics::new()))
 }
 
@@ -100,20 +91,22 @@ pub fn report_value_with_name(name: &str, value: f64) {
     statistics.report_value_with_name(name, value);
 }
 
-pub fn into_csv(path: &Path) {
+pub fn into_csv<P: AsRef<Path>>(_path: P) {
+    todo!()
 }
 
-impl Serialize for Statistics {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let mut state = serializer.serialize_struct("Statistics", 3)?;
-        state.serialize_field("statistics", "asdf")?;
-        state.end()
-    }
+#[derive(Debug, serde::Serialize)]
+struct StatisticsJson<'a> {
+    statistics: &'a HashMap<&'a String, &'a VecDeque<Entry>>
 }
 
-pub fn into_json(path: &Path) {
+pub fn save_as_json<P: AsRef<Path>>(path: P) {
+    // TODO: Think about error handling... unwrap everywhere is not cool...
+    let statistics = get_initialized_statistics().lock().unwrap();
+    let statistics_fmap = statistics.id_by_name.iter().map(|(name, index)| (name, &statistics.data_streams[index.id].stream)).collect();
 
+    let json_string = serde_json::to_string(&StatisticsJson{statistics: &statistics_fmap}).unwrap();
+    fs::create_dir_all(path.as_ref().parent().unwrap()).unwrap();
+    let mut json_file = fs::File::create(path).unwrap();
+    json_file.write_all(json_string.as_bytes()).unwrap();
 }
