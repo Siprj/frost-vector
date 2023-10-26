@@ -1,7 +1,7 @@
 use std::collections::{HashMap, VecDeque};
 use std::fs;
 use std::io::Write;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{Ordering, AtomicUsize};
 use std::sync::{Mutex, OnceLock};
 use std::vec::Vec;
@@ -91,8 +91,23 @@ pub fn report_value_with_name(name: &str, value: f64) {
     statistics.report_value_with_name(name, value);
 }
 
-pub fn into_csv<P: AsRef<Path>>(_path: P) {
-    todo!()
+pub fn into_csv_files<P: AsRef<Path>>(path: P) {
+    fs::create_dir_all(path.as_ref()).unwrap();
+
+    let statistics = get_initialized_statistics().lock().unwrap();
+    for (name, index) in statistics.id_by_name.iter() {
+        let mut csv_path_name: PathBuf = path.as_ref().into();
+        csv_path_name.push(name.replace(" ", "_"));
+        csv_path_name.set_extension("csv");
+
+        println!("csv_path_name: {}", csv_path_name.display());
+
+        let mut csv_file = csv::Writer::from_path(csv_path_name).unwrap();
+        for entry in &statistics.data_streams[index.id].stream {
+            csv_file.serialize(entry).unwrap();
+        }
+        csv_file.flush().unwrap();
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
