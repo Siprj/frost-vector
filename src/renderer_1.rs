@@ -472,7 +472,7 @@ impl Renderer {
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
             let end = monotonic_time.elapsed();
-            statistics::report_value("bad_circle_path", (end - start).as_secs_f32().to_string());
+            statistics::report_value_with_name("bad_circle_path", (end - start).as_secs_f64());
         } else {
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
@@ -482,15 +482,15 @@ impl Renderer {
                 self.drawable_objects.circles.get_raw(),
             );
             let end = monotonic_time.elapsed();
-            statistics::report_value("good_circle_path", (end - start).as_secs_f32().to_string());
+            statistics::report_value_with_name("good_circle_path", (end - start).as_secs_f64());
         }
-        statistics::report_value(
+        statistics::report_value_with_name(
             "circle_data_size",
-            self.drawable_objects.circles.get_raw().len().to_string(),
+            self.drawable_objects.circles.get_raw().len() as f64,
         );
-        statistics::report_value(
+        statistics::report_value_with_name(
             "rectangle_data_size",
-            self.drawable_objects.rectangles.get_raw().len().to_string(),
+            self.drawable_objects.rectangles.get_raw().len() as f64,
         );
 
         if self.drawable_objects.rectangles.get_raw().len()
@@ -507,9 +507,9 @@ impl Renderer {
                         usage: wgpu::BufferUsages::VERTEX | wgpu::BufferUsages::COPY_DST,
                     });
             let end = monotonic_time.elapsed();
-            statistics::report_value(
+            statistics::report_value_with_name(
                 "bad_rectangle_path",
-                (end - start).as_secs_f32().to_string(),
+                (end - start).as_secs_f64(),
             );
         } else {
             let monotonic_time = Instant::now();
@@ -520,9 +520,9 @@ impl Renderer {
                 self.drawable_objects.rectangles.get_raw(),
             );
             let end = monotonic_time.elapsed();
-            statistics::report_value(
+            statistics::report_value_with_name(
                 "good_rectangle_path",
-                (end - start).as_secs_f32().to_string(),
+                (end - start).as_secs_f64(),
             );
         }
 
@@ -542,9 +542,7 @@ impl Renderer {
                         }),
                         store: true,
                     },
-                })],
-                depth_stencil_attachment: None,
-            });
+                })], depth_stencil_attachment: None, });
 
             self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
 
@@ -555,17 +553,17 @@ impl Renderer {
             let monotonic_time = Instant::now();
             let start = monotonic_time.elapsed();
             self.windowed_device.queue.on_submitted_work_done(move || {
-                statistics::report_value(
+                statistics::report_value_with_name(
                     "end_queue_submit_time",
-                    monotonic_time.elapsed().as_secs_f32().to_string(),
+                    monotonic_time.elapsed().as_secs_f64(),
                 )
             });
             self.windowed_device
                 .queue
                 .submit(iter::once(encoder.finish()));
             let end = monotonic_time.elapsed();
-            statistics::report_value("queue_submit", (end - start).as_secs_f32().to_string());
-            statistics::report_value("start_queue_submit_time", start.as_secs_f32().to_string());
+            statistics::report_value_with_name("queue_submit", (end - start).as_secs_f64());
+            statistics::report_value_with_name("start_queue_submit_time", start.as_secs_f64());
         }
 
         {
@@ -573,7 +571,7 @@ impl Renderer {
             let start = monotonic_time.elapsed();
             output.present();
             let end = monotonic_time.elapsed();
-            statistics::report_value("output_present", (end - start).as_secs_f32().to_string());
+            statistics::report_value_with_name("output_present", (end - start).as_secs_f64());
         }
 
         self.drawable_objects.circles.clear();
@@ -838,7 +836,6 @@ where
                                 },
                             ..
                         } => {
-                            statistics::print_header();
                             *control_flow = ControlFlow::Exit
                         }
                         WindowEvent::Resized(physical_size) => {
@@ -856,7 +853,7 @@ where
                 if window_id == renderer.windowed_device.window.id() =>
             {
                 redraw(&mut renderer.drawable_objects);
-                statistics::publish_row();
+                statistics::next_frame();
                 match renderer.render() {
                     Ok(_) => {
                         render_count = render_count + 1;

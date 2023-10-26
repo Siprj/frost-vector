@@ -1,6 +1,7 @@
 use frost_vector::renderer_1_test;
 use frost_vector::renderer_2_test;
 use winit::event_loop::EventLoop;
+use frost_vector::statistics;
 
 const ELEMENT_COUNT: usize = 200_000;
 //const ELEMENT_COUNT: usize = 1;
@@ -29,5 +30,6 @@ fn main() {
 
     let mut event_loop = EventLoop::new();
     pollster::block_on(renderer_1_test::run(&mut event_loop, &circles, &rectangles));
+    statistics::restart_statistics();
     pollster::block_on(renderer_2_test::run(&mut event_loop, &circles, &rectangles));
 }

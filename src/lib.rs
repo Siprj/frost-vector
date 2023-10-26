@@ -14,7 +14,7 @@ pub mod renderer_1;
 pub mod renderer_1_test;
 pub mod renderer_2;
 pub mod renderer_2_test;
-mod statistics;
+pub mod statistics;
 mod texture;
 pub mod windowed_device;
 mod constants;
