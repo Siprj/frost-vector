@@ -75,7 +75,8 @@ impl WindowedDevice {
             width: size.width,
             height: size.height,
             // vsync off
-            present_mode: wgpu::PresentMode::AutoNoVsync, // surface_caps.present_modes[0],
+            // present_mode: wgpu::PresentMode::AutoNoVsync, // surface_caps.present_modes[0],
+            present_mode: wgpu::PresentMode::AutoVsync, // surface_caps.present_modes[0],
             alpha_mode: surface_caps.alpha_modes[0],
             view_formats: vec![],
         };

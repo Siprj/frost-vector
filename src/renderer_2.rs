@@ -3,10 +3,7 @@ use crate::math;
 use crate::raw::{Gpu, Raw};
 use crate::statistics;
 use crate::windowed_device::WindowedDevice;
-use notify::{Error, RecursiveMode, Watcher};
 use winit::platform::run_return::EventLoopExtRunReturn;
-use std::process::exit;
-use std::sync::mpsc::{self, channel, Receiver};
 use std::time::Instant;
 use std::vec::Vec;
 use std::{env, iter, mem};
@@ -35,18 +32,18 @@ impl Circle {
             attributes: &[
                 wgpu::VertexAttribute {
                     offset: 0,
-                    shader_location: 2,
+                    shader_location: 1,
                     format: wgpu::VertexFormat::Float32x2,
                 },
                 wgpu::VertexAttribute {
                     offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
-                    shader_location: 3,
+                    shader_location: 2,
                     format: wgpu::VertexFormat::Float32,
                 },
                 wgpu::VertexAttribute {
                     offset: (mem::size_of::<math::Vector2<f32>>() + mem::size_of::<f32>())
                         as wgpu::BufferAddress,
-                    shader_location: 4,
+                    shader_location: 3,
                     format: wgpu::VertexFormat::Float32,
                 },
             ],
@@ -84,26 +81,7 @@ impl Vertex {
     }
 }
 
-const CIRCLE_VERTICES: &[Vertex] = &[
-    Vertex {
-        pos: math::Vector2 { x: -1.0, y: 1.0 },
-        uv_coords: math::Vector2 { x: -1.0, y: 1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: 1.0, y: 1.0 },
-        uv_coords: math::Vector2 { x: 1.0, y: 1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: -1.0, y: -1.0 },
-        uv_coords: math::Vector2 { x: -1.0, y: -1.0 },
-    },
-    Vertex {
-        pos: math::Vector2 { x: 1.0, y: -1.0 },
-        uv_coords: math::Vector2 { x: 1.0, y: -1.0 },
-    },
-];
-
-const CIRCLE_INDICES: &[u16] = &[0, 1, 3, 3, 2, 0];
+const CIRCLE_INDICES: &[u16] = &[0, 1, 2, 0, 3, 2];
 
 #[derive(Debug)]
 struct Rectangle {
@@ -179,20 +157,13 @@ impl DrawObjects {
 struct Renderer {
     pub windowed_device: WindowedDevice,
     pub drawable_objects: DrawObjects,
-    pub circle_vertex_buffer: wgpu::Buffer,
     pub circle_index_buffer: wgpu::Buffer,
     pub circle_pipeline: wgpu::RenderPipeline,
     pub rectangle_pipeline: wgpu::RenderPipeline,
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
-    pub file_event_receiver: Receiver<Result<notify::Event, Error>>,
     pub circle_instances_buffer: wgpu::Buffer,
     pub rectangle_instances_buffer: wgpu::Buffer,
-
-    // We need to the norifier needs to exist as long as the renderer exists,
-    // so we get the filesystem events.
-    #[allow(unused)]
-    watcher: notify::RecommendedWatcher,
 }
 
 impl Renderer {
@@ -219,7 +190,7 @@ impl Renderer {
 
         let size = wd.window.inner_size();
         let perspective_matrix: math::Matrix4x4<f32> =
-            math::ortho(size.width as u16, size.height as u16);
+            math::ortho(0.0, size.width as f32, size.height as f32, 0.0, 0.0, 1.0);
         let perspective_buffer = wd
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -270,7 +241,7 @@ impl Renderer {
                 vertex: wgpu::VertexState {
                     module: &circle_shader,
                     entry_point: "vs_main",
-                    buffers: &[Vertex::buffer_description(), Circle::buffer_description()],
+                    buffers: &[Circle::buffer_description()],
                 },
                 fragment: Some(wgpu::FragmentState {
                     module: &circle_shader,
@@ -307,14 +278,6 @@ impl Renderer {
                 // indicates how many array layers the attachments will have.
                 multiview: None,
             });
-
-        let circle_vertex_buffer =
-            wd.device
-                .create_buffer_init(&wgpu::util::BufferInitDescriptor {
-                    label: Some("Circle Vertex Buffer"),
-                    contents: CIRCLE_VERTICES.get_raw(),
-                    usage: wgpu::BufferUsages::VERTEX,
-                });
 
         let circle_index_buffer = wd
             .device
@@ -372,20 +335,10 @@ impl Renderer {
                     multiview: None,
                 });
 
-        // Create a channel to receive the events.
-        let (sender, receiver) = channel();
-
-        // Create a watcher object, delivering debounced events.
-        // The notification back-end is selected based on the platform.
-        let mut watcher = notify::recommended_watcher(sender).unwrap();
-
         // Add a path to be watched. All files and directories at that path and
         // below will be monitored for changes.
         let mut watched_path = env::current_dir().unwrap();
         watched_path.push("src/shaders");
-        watcher
-            .watch(&watched_path, RecursiveMode::Recursive)
-            .unwrap();
         let circle_instances_buffer = wd.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Circle Index Buffer"),
             size: 100000 * wgpu::COPY_BUFFER_ALIGNMENT,
@@ -404,13 +357,10 @@ impl Renderer {
             windowed_device: wd,
             drawable_objects: DrawObjects::new(),
             circle_pipeline,
-            circle_vertex_buffer,
             circle_index_buffer,
             rectangle_pipeline,
             perspective_bind_group,
             perspective_buffer,
-            file_event_receiver: receiver,
-            watcher,
             circle_instances_buffer,
             rectangle_instances_buffer,
         }
@@ -488,7 +438,7 @@ impl Renderer {
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
-                label: Some("Rectangle Render Pass"),
+                label: Some("Shape render pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                     view: &view,
                     resolve_target: None,
@@ -505,7 +455,7 @@ impl Renderer {
                 depth_stencil_attachment: None,
             });
 
-            // self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
+            self.render_circles(&mut render_pass, &self.circle_instances_buffer)?;
 
             self.render_rectangles(&mut render_pass, &self.rectangle_instances_buffer)?;
         }
@@ -551,17 +501,17 @@ impl Renderer {
         'c: 'b,
         'b: 'd,
     {
+        println!("alskdjflaksjdfl");
         render_pass.set_pipeline(&self.circle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
-        render_pass.set_vertex_buffer(0, self.circle_vertex_buffer.slice(..));
-        render_pass.set_vertex_buffer(1, circle_instances_buffer.slice(..));
-        render_pass.set_index_buffer(
-            self.circle_index_buffer.slice(..),
-            wgpu::IndexFormat::Uint16,
-        );
-        render_pass.draw_indexed(
-            0..(CIRCLE_INDICES.len() as u32),
-            0,
+        render_pass.set_vertex_buffer(0, circle_instances_buffer.slice(..));
+//        render_pass.set_index_buffer(
+//            self.circle_index_buffer.slice(..),
+//            wgpu::IndexFormat::Uint16,
+//        );
+        render_pass.draw(
+            // 0..(CIRCLE_INDICES.len() as u32),
+            0..3,
             0..(self.drawable_objects.circles.len() as u32),
         );
         Ok(())
@@ -598,7 +548,7 @@ impl Renderer {
                 .configure(&self.windowed_device.device, &self.windowed_device.config);
 
             let perspective_matrix: math::Matrix4x4<f32> =
-                math::ortho(new_size.width as u16, new_size.height as u16);
+                math::ortho(0.0, new_size.width as f32, new_size.height as f32, 0.0, 0.0, 1.0);
             // println!("perspective_matrix_bla: {:?}", perspective_matrix);
             self.windowed_device.queue.write_buffer(
                 &self.perspective_buffer,
@@ -608,160 +558,6 @@ impl Renderer {
         }
     }
 
-    fn update_shaders_if_needed(&mut self) {
-        match self.file_event_receiver.try_recv() {
-            Ok(res) => {
-                println!("nice stuff; file changed: {:?}", res);
-                let perspective_bind_group_layout = self
-                    .windowed_device
-                    .device
-                    .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
-                        label: Some("perspective Bind Group Descriptor"),
-                        entries: &[wgpu::BindGroupLayoutEntry {
-                            binding: 0,
-                            visibility: wgpu::ShaderStages::VERTEX,
-                            ty: wgpu::BindingType::Buffer {
-                                ty: wgpu::BufferBindingType::Uniform,
-                                has_dynamic_offset: false,
-                                min_binding_size: None,
-                            },
-                            count: None,
-                        }],
-                    });
-                let render_pipeline_layout = self.windowed_device.device.create_pipeline_layout(
-                    &wgpu::PipelineLayoutDescriptor {
-                        label: Some("Render Pipeline Layout"),
-                        bind_group_layouts: &[&perspective_bind_group_layout],
-                        push_constant_ranges: &[],
-                    },
-                );
-
-                let mut circle_shader_path = env::current_dir().unwrap();
-                circle_shader_path.push("src/shaders/renderer_2_circle.wgsl");
-                let circle_shader_content = std::fs::read_to_string(circle_shader_path).unwrap();
-
-                let circle_shader = self.windowed_device.device.create_shader_module(
-                    wgpu::ShaderModuleDescriptor {
-                        label: Some("renderer_2_circle_shader"),
-                        source: wgpu::ShaderSource::Wgsl(circle_shader_content.into()),
-                    },
-                );
-
-                let circle_pipeline = self.windowed_device.device.create_render_pipeline(
-                    &wgpu::RenderPipelineDescriptor {
-                        label: Some("Circle Render Pipeline"),
-                        layout: Some(&render_pipeline_layout),
-                        vertex: wgpu::VertexState {
-                            module: &circle_shader,
-                            entry_point: "vs_main",
-                            buffers: &[Vertex::buffer_description(), Circle::buffer_description()],
-                        },
-                        fragment: Some(wgpu::FragmentState {
-                            module: &circle_shader,
-                            entry_point: "fs_main",
-                            targets: &[Some(wgpu::ColorTargetState {
-                                format: self.windowed_device.config.format,
-                                blend: Some(wgpu::BlendState {
-                                    color: wgpu::BlendComponent::REPLACE,
-                                    alpha: wgpu::BlendComponent::REPLACE,
-                                }),
-                                write_mask: wgpu::ColorWrites::ALL,
-                            })],
-                        }),
-                        primitive: wgpu::PrimitiveState {
-                            topology: wgpu::PrimitiveTopology::TriangleList,
-                            strip_index_format: None,
-                            front_face: wgpu::FrontFace::Ccw,
-                            cull_mode: Some(wgpu::Face::Back),
-                            // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                            // or Features::POLYGON_MODE_POINT
-                            polygon_mode: wgpu::PolygonMode::Fill,
-                            // Requires Features::DEPTH_CLIP_CONTROL
-                            unclipped_depth: false,
-                            // Requires Features::CONSERVATIVE_RASTERIZATION
-                            conservative: false,
-                        },
-                        depth_stencil: None,
-                        multisample: wgpu::MultisampleState {
-                            count: 1,
-                            mask: !0,
-                            alpha_to_coverage_enabled: false,
-                        },
-                        // If the pipeline will be used with a multiview render pass, this
-                        // indicates how many array layers the attachments will have.
-                        multiview: None,
-                    },
-                );
-
-                let mut rectangle_shader_path = env::current_dir().unwrap();
-                rectangle_shader_path.push("src/shaders/renderer_2_rectangle.wgsl");
-                let rectangle_shader_content =
-                    std::fs::read_to_string(rectangle_shader_path).unwrap();
-
-                let rectangle_shader = self.windowed_device.device.create_shader_module(
-                    wgpu::ShaderModuleDescriptor {
-                        label: Some("renderer_2_rectangle_shader"),
-                        source: wgpu::ShaderSource::Wgsl(rectangle_shader_content.into()),
-                    },
-                );
-
-                let rectangle_pipeline = self.windowed_device.device.create_render_pipeline(
-                    &wgpu::RenderPipelineDescriptor {
-                        label: Some("Rectangle Render Pipeline"),
-                        layout: Some(&render_pipeline_layout),
-                        vertex: wgpu::VertexState {
-                            module: &rectangle_shader,
-                            entry_point: "vs_main",
-                            buffers: &[
-                                Rectangle::buffer_description(),
-                            ],
-                        },
-                        fragment: Some(wgpu::FragmentState {
-                            module: &rectangle_shader,
-                            entry_point: "fs_main",
-                            targets: &[Some(wgpu::ColorTargetState {
-                                format: self.windowed_device.config.format,
-                                blend: Some(wgpu::BlendState {
-                                    color: wgpu::BlendComponent::REPLACE,
-                                    alpha: wgpu::BlendComponent::REPLACE,
-                                }),
-                                write_mask: wgpu::ColorWrites::ALL,
-                            })],
-                        }),
-                        primitive: wgpu::PrimitiveState {
-                            topology: wgpu::PrimitiveTopology::TriangleList,
-                            strip_index_format: None,
-                            front_face: wgpu::FrontFace::Ccw,
-                            cull_mode: Some(wgpu::Face::Back),
-                            // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                            // or Features::POLYGON_MODE_POINT
-                            polygon_mode: wgpu::PolygonMode::Fill,
-                            // Requires Features::DEPTH_CLIP_CONTROL
-                            unclipped_depth: false,
-                            // Requires Features::CONSERVATIVE_RASTERIZATION
-                            conservative: false,
-                        },
-                        depth_stencil: None,
-                        multisample: wgpu::MultisampleState {
-                            count: 1,
-                            mask: !0,
-                            alpha_to_coverage_enabled: false,
-                        },
-                        // If the pipeline will be used with a multiview render pass, this
-                        // indicates how many array layers the attachments will have.
-                        multiview: None,
-                    },
-                );
-                self.rectangle_pipeline = rectangle_pipeline;
-                self.circle_pipeline = circle_pipeline;
-            }
-            Err(mpsc::TryRecvError::Empty) => {}
-            Err(mpsc::TryRecvError::Disconnected) => {
-                println!("file listeners is disconnected!!!");
-                exit(1);
-            }
-        }
-    }
 }
 
 pub async fn run<F, F2>(event_loop: &mut EventLoop<()>, event_handler: F, mut redraw: F2)
@@ -773,7 +569,6 @@ where
     let window = WindowBuilder::new().build(&event_loop).unwrap();
     let mut renderer = Renderer::new(window).await;
     event_loop.run_return(move |event, _, control_flow| {
-        renderer.update_shaders_if_needed();
         match event {
             Event::WindowEvent {
                 ref event,

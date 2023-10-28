@@ -241,7 +241,7 @@ impl Renderer {
 
         let size = wd.window.inner_size();
         let perspective_matrix: math::Matrix4x4<f32> =
-            math::ortho(size.width as u16, size.height as u16);
+            math::ortho(0.0, size.width as f32, 0.0, size.height as f32, 0.0, 1.0);
         let perspective_buffer = wd
             .device
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
@@ -642,7 +642,7 @@ impl Renderer {
                 .configure(&self.windowed_device.device, &self.windowed_device.config);
 
             let perspective_matrix: math::Matrix4x4<f32> =
-                math::ortho(new_size.width as u16, new_size.height as u16);
+                math::ortho(0.0, new_size.width as f32, 0.0, new_size.height as f32, 0.0, 1.0);
             // println!("perspective_matrix_bla: {:?}", perspective_matrix);
             self.windowed_device.queue.write_buffer(
                 &self.perspective_buffer,

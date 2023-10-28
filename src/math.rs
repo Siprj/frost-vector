@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Neg};
+use std::{ops::{Add, Div, Neg, Sub}, process::Output};
 
 use crate::raw::Gpu;
 
@@ -147,6 +147,7 @@ where
     }
 }
 
+// Matrixes are stored in column-major.
 #[derive(Debug, PartialEq, Eq)]
 #[repr(C, packed)]
 pub struct Matrix4x4<T> {
@@ -202,25 +203,36 @@ impl Two<f32> for f32 {
 }
 
 #[inline]
-pub fn ortho<T>(width: u16, height: u16) -> Matrix4x4<T>
+pub fn ortho<T>(left: T, right: T, bottom: T, top: T, near: T, far: T) -> Matrix4x4<T>
 where
-    T: Div<Output = T> + Zero<T> + One<T> + Two<T> + From<u16> + Copy + Neg<Output = T>,
+    T: Div<Output = T> + Zero<T> + One<T> + Two<T> + From<u16> + Copy + Neg<Output = T> + Sub<Output = T> + Add<Output = T>,
 {
+    let rml = right - left;
+    let rpl = right + left;
+    let tmb = top - bottom;
+    let tpb = top + bottom;
+    let fmn = far - near;
     Matrix4x4 {
-        c0r0: T::two() / T::from(width),
+        // If we want to change the X axis direction we can do it with minus
+        // c0r0: -T::two() / rml,
+        c0r0: T::two() / rml,
         c1r0: T::zero(),
         c2r0: T::zero(),
-        c3r0: -T::one(),
+        c3r0: -rpl / rml,
 
         c0r1: T::zero(),
-        c1r1: -T::two() / T::from(height),
+        // If we want to change the Y axis direction we can do it with minus
+        // c1r1: -T::two() / tmb,
+        c1r1: T::two() / tmb,
         c2r1: T::zero(),
-        c3r1: T::one(),
+        c3r1: -tpb / tmb,
 
         c0r2: T::zero(),
         c1r2: T::zero(),
-        c2r2: T::one(),
-        c3r2: T::zero(),
+        // If we want to change the Z axis direction we can do it with minus
+        // c2r2: -T::one() / fmn,
+        c2r2: T::one() / fmn,
+        c3r2: -near / fmn,
 
         c0r3: T::zero(),
         c1r3: T::zero(),

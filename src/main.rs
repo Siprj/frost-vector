@@ -29,11 +29,11 @@ fn main() {
 
     let mut event_loop = EventLoop::new();
 
-    pollster::block_on(renderer_1_test::run(&mut event_loop, &circles, &rectangles));
-
-    statistics::save_as_json("./statistics/renderer_1.json");
-    statistics::into_csv_files("./statistics/renderer_1/");
-    statistics::restart_statistics();
+//    pollster::block_on(renderer_1_test::run(&mut event_loop, &circles, &rectangles));
+//
+//    statistics::save_as_json("./statistics/renderer_1.json");
+//    statistics::into_csv_files("./statistics/renderer_1/");
+//    statistics::restart_statistics();
 
     pollster::block_on(renderer_2_test::run(&mut event_loop, &circles, &rectangles));
 

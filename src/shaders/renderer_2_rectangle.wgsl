@@ -13,46 +13,6 @@ struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
 }
 
-//fn position_from_index(vertex_index: u32, instance: InstanceInput) -> vec2<f32> {
-//    switch vertex_index {
-//        case 0u: {
-//          let x = 0.0;
-//          let y = 100.0;
-//          return vec2<f32>(x,y);
-//        }
-//        case 1u: {
-//            let x = 100.0;
-//            let y = 100.0;
-//            return vec2<f32>(x,y);
-//        }
-//        case 2u: {
-//            let x = 0.0;
-//            let y = 0.0;
-//            return vec2<f32>(x,y);
-//        }
-//
-//        case 3u: {
-//            let x = 0.0;
-//            let y = 0.0;
-//            return vec2<f32>(x,y);
-//        }
-//        case 4u: {
-//            let x = 100.0;
-//            let y = 100.0;
-//            return vec2<f32>(x,y);
-//        }
-//        case 5u: {
-//            let x = 100.0;
-//            let y = 0.0;
-//            return vec2<f32>(x,y);
-//        }
-//
-//        default: {
-//          return vec2<f32>(0.0,0.0);
-//        }
-//    }
-//}
-
 fn position_from_index(vertex_index: u32, instance: InstanceInput) -> vec2<f32> {
     switch vertex_index {
         case 0u: {
