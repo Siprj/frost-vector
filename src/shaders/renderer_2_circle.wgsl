@@ -9,6 +9,9 @@ struct InstanceInput {
     @location(3) brush_size: f32,
 }
 
+@group(1) @binding(0)
+var<storage,read> positions: array<vec2<f32>>;
+
 struct VertexOutput {
     @builtin(position) clip_position: vec4<f32>,
 }
@@ -47,7 +50,8 @@ fn position_from_index(vertex_index: u32) -> vec2<f32> {
 fn vs_main(@builtin(vertex_index) vertex_index: u32, instance: InstanceInput) -> VertexOutput {
     var out: VertexOutput;
 
-    let p = position_from_index(vertex_index);
+    //let p = position_from_index(vertex_index);
+    let p = positions[vertex_index];
     out.clip_position = perspective * vec4<f32>(p.x, p.y, 0.5, 1.0);
 
 

@@ -6,7 +6,7 @@ use crate::windowed_device::WindowedDevice;
 use winit::platform::run_return::EventLoopExtRunReturn;
 use std::time::Instant;
 use std::vec::Vec;
-use std::{env, iter, mem};
+use std::{iter, mem};
 use wgpu::util::DeviceExt;
 use winit::{
     event::*,
@@ -51,6 +51,8 @@ impl Circle {
     }
 }
 
+#[derive(Debug, PartialEq)]
+#[repr(C, packed)]
 struct Vertex {
     #[allow(dead_code)]
     pos: math::Vector2<f32>,
@@ -156,6 +158,8 @@ struct Renderer {
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
     pub circle_instances_buffer: wgpu::Buffer,
+    pub circle_vertices_bind_group: wgpu::BindGroup,
+    pub circle_vertices_array_buffer: wgpu::Buffer,
     pub rectangle_instances_buffer: wgpu::Buffer,
 }
 
@@ -218,6 +222,37 @@ impl Renderer {
             label: Some("Perspective Bind Group"),
         });
 
+        let circle_vertex_bind_group_layout = wd.device
+                .create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                    label: Some("Circle vertices bind group"),
+                    entries: &[wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::VERTEX,
+                        ty: wgpu::BindingType::Buffer {
+                            ty: wgpu::BufferBindingType::Storage { read_only: true },
+                            has_dynamic_offset: false,
+                            min_binding_size: None,
+                        },
+                        count: None,
+                    }],
+                });
+
+        let circle_vertices_array_buffer = wd.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("Circle Vertics Array Buffer"),
+            size: 100000 * wgpu::COPY_BUFFER_ALIGNMENT,
+            usage: wgpu::BufferUsages::STORAGE | wgpu::BufferUsages::COPY_DST,
+            mapped_at_creation: false,
+        });
+
+        let circle_vertex_bind_group = wd.device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &circle_vertex_bind_group_layout,
+            entries: &[wgpu::BindGroupEntry {
+                binding: 0,
+                resource: circle_vertices_array_buffer.as_entire_binding(),
+            }],
+            label: Some("Circle Vertices Bind Group"),
+        });
+
         let render_pipeline_layout =
             wd.device
                 .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
@@ -226,11 +261,19 @@ impl Renderer {
                     push_constant_ranges: &[],
                 });
 
+        let circle_pipeline_layout =
+            wd.device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: Some("Render Pipeline Layout"),
+                    bind_group_layouts: &[&perspective_bind_group_layout, &circle_vertex_bind_group_layout],
+                    push_constant_ranges: &[],
+                });
+
         let circle_pipeline = wd
             .device
             .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
                 label: Some("Circle Render Pipeline"),
-                layout: Some(&render_pipeline_layout),
+                layout: Some(&circle_pipeline_layout),
                 vertex: wgpu::VertexState {
                     module: &circle_shader,
                     entry_point: "vs_main",
@@ -328,10 +371,6 @@ impl Renderer {
                     multiview: None,
                 });
 
-        // Add a path to be watched. All files and directories at that path and
-        // below will be monitored for changes.
-        let mut watched_path = env::current_dir().unwrap();
-        watched_path.push("src/shaders");
         let circle_instances_buffer = wd.device.create_buffer(&wgpu::BufferDescriptor {
             label: Some("Circle Index Buffer"),
             size: 100000 * wgpu::COPY_BUFFER_ALIGNMENT,
@@ -356,6 +395,8 @@ impl Renderer {
             perspective_buffer,
             circle_instances_buffer,
             rectangle_instances_buffer,
+            circle_vertices_bind_group: circle_vertex_bind_group,
+            circle_vertices_array_buffer,
         }
     }
 
@@ -427,6 +468,17 @@ impl Renderer {
                 (end - start).as_secs_f64(),
             );
         }
+        let circle_vertices: Vec<Vertex> = vec![
+            Vertex{pos: math::Vector2{x: 0.0, y: 0.0}},
+            Vertex{pos: math::Vector2{x: 0.0, y: 400.0}},
+            Vertex{pos: math::Vector2{x: 400.0, y: 400.0}},
+            Vertex{pos: math::Vector2{x: 400.0, y: 0.0}},
+        ];
+        self.windowed_device.queue.write_buffer(
+            &self.circle_vertices_array_buffer,
+            0,
+            circle_vertices.get_raw(),
+        );
 
         let (mut encoder, view, output) = self.windowed_device.prepare_encoder()?;
         {
@@ -497,6 +549,7 @@ impl Renderer {
         println!("alskdjflaksjdfl");
         render_pass.set_pipeline(&self.circle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
+        render_pass.set_bind_group(1, &self.circle_vertices_bind_group, &[]);
         render_pass.set_vertex_buffer(0, circle_instances_buffer.slice(..));
         render_pass.set_index_buffer(
             self.circle_index_buffer.slice(..),
