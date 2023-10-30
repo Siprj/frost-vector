@@ -1,4 +1,4 @@
-use std::{ops::{Add, Div, Neg, Sub}, process::Output};
+use std::{ops::{Add, Div, Neg, Sub}};
 
 use crate::raw::Gpu;
 
@@ -213,24 +213,18 @@ where
     let tpb = top + bottom;
     let fmn = far - near;
     Matrix4x4 {
-        // If we want to change the X axis direction we can do it with minus
-        // c0r0: -T::two() / rml,
         c0r0: T::two() / rml,
         c1r0: T::zero(),
         c2r0: T::zero(),
         c3r0: -rpl / rml,
 
         c0r1: T::zero(),
-        // If we want to change the Y axis direction we can do it with minus
-        // c1r1: -T::two() / tmb,
         c1r1: T::two() / tmb,
         c2r1: T::zero(),
         c3r1: -tpb / tmb,
 
         c0r2: T::zero(),
         c1r2: T::zero(),
-        // If we want to change the Z axis direction we can do it with minus
-        // c2r2: -T::one() / fmn,
         c2r2: T::one() / fmn,
         c3r2: -near / fmn,
 

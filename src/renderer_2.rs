@@ -54,8 +54,6 @@ impl Circle {
 struct Vertex {
     #[allow(dead_code)]
     pos: math::Vector2<f32>,
-    #[allow(dead_code)]
-    uv_coords: math::Vector2<f32>,
 }
 
 impl Gpu for Vertex {}
@@ -71,17 +69,12 @@ impl Vertex {
                     shader_location: 0,
                     format: wgpu::VertexFormat::Float32x2,
                 },
-                wgpu::VertexAttribute {
-                    offset: mem::size_of::<math::Vector2<f32>>() as wgpu::BufferAddress,
-                    shader_location: 1,
-                    format: wgpu::VertexFormat::Float32x2,
-                },
             ],
         }
     }
 }
 
-const CIRCLE_INDICES: &[u16] = &[0, 1, 2, 0, 3, 2];
+const CIRCLE_INDICES: &[u16] = &[0, 1, 2, 0, 2, 3];
 
 #[derive(Debug)]
 struct Rectangle {
@@ -505,13 +498,13 @@ impl Renderer {
         render_pass.set_pipeline(&self.circle_pipeline);
         render_pass.set_bind_group(0, &self.perspective_bind_group, &[]);
         render_pass.set_vertex_buffer(0, circle_instances_buffer.slice(..));
-//        render_pass.set_index_buffer(
-//            self.circle_index_buffer.slice(..),
-//            wgpu::IndexFormat::Uint16,
-//        );
-        render_pass.draw(
-            // 0..(CIRCLE_INDICES.len() as u32),
-            0..3,
+        render_pass.set_index_buffer(
+            self.circle_index_buffer.slice(..),
+            wgpu::IndexFormat::Uint16,
+        );
+        render_pass.draw_indexed(
+            0..(CIRCLE_INDICES.len() as u32),
+            0,
             0..(self.drawable_objects.circles.len() as u32),
         );
         Ok(())
