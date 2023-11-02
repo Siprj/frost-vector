@@ -3,6 +3,7 @@ use crate::raw::{Gpu, Raw};
 use crate::statistics;
 use crate::windowed_device::WindowedDevice;
 use notify::{Error, RecursiveMode, Watcher};
+use wgpu::include_wgsl;
 use winit::platform::run_return::EventLoopExtRunReturn;
 use std::process::exit;
 use std::sync::mpsc::{self, channel, Receiver};
@@ -207,7 +208,6 @@ struct Renderer {
     pub rectangle_pipeline: wgpu::RenderPipeline,
     pub perspective_bind_group: wgpu::BindGroup,
     pub perspective_buffer: wgpu::Buffer,
-    pub file_event_receiver: Receiver<Result<notify::Event, Error>>,
     pub circle_instances_buffer: wgpu::Buffer,
     pub rectangle_instances_buffer: wgpu::Buffer,
 
@@ -223,21 +223,11 @@ impl Renderer {
 
         let circle_shader = wd
             .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("renderer_1_circle_shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/renderer_1_circle.wgsl").into(),
-                ),
-            });
+            .create_shader_module(include_wgsl!("shaders/renderer_1_circle.wgsl"));
 
         let rectangle_shader = wd
             .device
-            .create_shader_module(wgpu::ShaderModuleDescriptor {
-                label: Some("renderer_1_rectangle_shader"),
-                source: wgpu::ShaderSource::Wgsl(
-                    include_str!("shaders/renderer_1_rectangle.wgsl").into(),
-                ),
-            });
+            .create_shader_module(include_wgsl!("shaders/renderer_1_rectangle.wgsl"));
 
         let size = wd.window.inner_size();
         let perspective_matrix: math::Matrix4x4<f32> =
@@ -247,7 +237,6 @@ impl Renderer {
             .create_buffer_init(&wgpu::util::BufferInitDescriptor {
                 label: Some("Perspective Buffer"),
                 contents: perspective_matrix.get_raw(),
-                // contents: bytemuck::cast_slice(&perspective_matrix_bla),
                 usage: wgpu::BufferUsages::UNIFORM | wgpu::BufferUsages::COPY_DST,
             });
 
@@ -450,7 +439,6 @@ impl Renderer {
             rectangle_pipeline,
             perspective_bind_group,
             perspective_buffer,
-            file_event_receiver: receiver,
             watcher,
             circle_instances_buffer,
             rectangle_instances_buffer,
