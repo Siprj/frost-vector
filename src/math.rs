@@ -1,4 +1,4 @@
-use std::{ops::{Add, Div, Neg, Sub}};
+use std::ops::{Add, Div, Neg, Sub};
 
 use crate::raw::Gpu;
 

@@ -1,11 +1,14 @@
 use frost_vector::renderer_1_test;
-use frost_vector::renderer_2_test;
+use log::debug;
+//use frost_vector::renderer_2_test;
 use winit::event_loop::EventLoop;
-use frost_vector::statistics;
 use frost_vector::constants::ELEMENT_COUNT;
 
 
 fn main() {
+    env_logger::init();
+
+    debug!("Generating shapes");
     let mut circles: Vec<(f32, f32, f32, f32)> = Vec::new();
     for _ in 0..ELEMENT_COUNT {
         circles.push((
@@ -27,7 +30,8 @@ fn main() {
         ));
     }
 
-    let mut event_loop = EventLoop::new();
+    debug!("Creating event loop");
+    let event_loop = EventLoop::new().expect("Event loop");
 
 //    pollster::block_on(renderer_1_test::run(&mut event_loop, &circles, &rectangles));
 //
@@ -35,9 +39,9 @@ fn main() {
 //    statistics::into_csv_files("./statistics/renderer_1/");
 //    statistics::restart_statistics();
 
-    pollster::block_on(renderer_2_test::run(&mut event_loop, &circles, &rectangles));
+    pollster::block_on(renderer_1_test::run(event_loop, &circles, &rectangles));
 
-    statistics::save_as_json("./statistics/renderer_2.json");
-    statistics::into_csv_files("./statistics/renderer_2/");
-    statistics::restart_statistics();
+//    statistics::save_as_json("./statistics/renderer_2.json");
+//    statistics::into_csv_files("./statistics/renderer_2/");
+//    statistics::restart_statistics();
 }
