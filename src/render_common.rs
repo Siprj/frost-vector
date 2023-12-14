@@ -1,6 +1,6 @@
 use log::info;
 use wgpu::{BindGroup, Buffer, util::DeviceExt, BindGroupLayout};
-use winit::{event_loop::EventLoop, window::Window, event::Event, event::WindowEvent::{Resized, CloseRequested, KeyboardInput, MouseInput, RedrawRequested}, dpi::PhysicalSize};
+use winit::{event_loop::EventLoop, window::Window, event::Event, event::WindowEvent::{Resized, CloseRequested, KeyboardInput, MouseInput, RedrawRequested}, dpi::PhysicalSize, keyboard::NamedKey};
 use crate::{windowed_device::WindowedDevice, math, constants::NUMBER_OF_FRAMES, raw::Raw};
 
 pub struct RendererRunner {
@@ -74,13 +74,19 @@ impl RendererRunner {
             if let Event::WindowEvent{event, ..} = event {
                 match event {
                     Resized(new_size) => {
+                        info!("updating the projection matric after resize");
                         self.update_projection(new_size);
-                        elwt.exit()
                     },
                     CloseRequested => elwt.exit(),
-                    KeyboardInput { device_id: _, event: _, is_synthetic: _ } => todo!(),
-                    MouseInput { device_id: _, state: _, button: _ } => todo!(),
+                    KeyboardInput { device_id: _, event, is_synthetic: _ } => {
+                        info!("Escape was pressed; terminating the event loop");
+                        if let winit::keyboard::Key::Named(NamedKey::Escape) = event.logical_key {
+                            elwt.exit()
+                        }
+                    },
+                    MouseInput { device_id: _, state: _, button: _ } => (),
                     RedrawRequested => {
+                        info!("rendering as per the RedrawRequested was received");
                         current_renderer.render(&mut self.wd, &self.projection_bind_group);
                         render_count += 1;
                         if render_count > NUMBER_OF_FRAMES {

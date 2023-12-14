@@ -1,3 +1,4 @@
+use log::info;
 use winit::window::Window;
 
 // TODO: Try to think of a better name.
@@ -67,9 +68,7 @@ impl WindowedDevice {
         let surface_format = surface_caps
             .formats
             .iter()
-            .copied()
-            .filter(|f| f.is_srgb())
-            .next()
+            .copied().find(|f| f.is_srgb())
             .unwrap_or(surface_caps.formats[0]);
         let config = wgpu::SurfaceConfiguration {
             usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
@@ -107,11 +106,14 @@ impl WindowedDevice {
         ),
         wgpu::SurfaceError,
     > {
+        info!("getting current surface texture");
         let output = self.surface.get_current_texture()?;
+        info!("creating view from the texture");
         let view = output
             .texture
             .create_view(&wgpu::TextureViewDescriptor::default());
 
+        info!("getting commander encoder");
         let encoder = self
             .device
             .create_command_encoder(&wgpu::CommandEncoderDescriptor {

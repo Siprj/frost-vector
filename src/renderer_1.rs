@@ -174,18 +174,13 @@ struct Renderer1Prepared {
     rectangle_instances_buffer: wgpu::Buffer,
 }
 
+#[derive(Debug, Default)]
 pub struct Renderer1 {
     circles: Vec<Circle>,
     rectangles: Vec<Rectangle>,
 }
 
 impl Renderer1 {
-    pub fn new() -> Self {
-        Self {
-            circles: Vec::new(),
-            rectangles: Vec::new(),
-        }
-    }
     pub fn circles(&mut self, circles: &Vec<(f32, f32, f32, f32)>) {
         for &(x, y, radius, brush_size) in circles {
             self.circle(x, y, radius, brush_size);
@@ -527,7 +522,7 @@ impl Renderer1Prepared {
         'b: 'd,
     {
         render_pass.set_pipeline(&self.circle_pipeline);
-        render_pass.set_bind_group(0, &perspective_bind_group, &[]);
+        render_pass.set_bind_group(0, perspective_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.circle_vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, circle_instances_buffer.slice(..));
         render_pass.set_index_buffer(
@@ -555,7 +550,7 @@ impl Renderer1Prepared {
         'b: 'd,
     {
         render_pass.set_pipeline(&self.rectangle_pipeline);
-        render_pass.set_bind_group(0, &perspective_bind_group, &[]);
+        render_pass.set_bind_group(0, perspective_bind_group, &[]);
         render_pass.set_vertex_buffer(0, self.rectangle_vertex_buffer.slice(..));
         render_pass.set_vertex_buffer(1, rectangle_instances_buffer.slice(..));
         render_pass.set_index_buffer(
