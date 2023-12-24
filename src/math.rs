@@ -205,7 +205,15 @@ impl Two<f32> for f32 {
 #[inline]
 pub fn ortho<T>(left: T, right: T, bottom: T, top: T, near: T, far: T) -> Matrix4x4<T>
 where
-    T: Div<Output = T> + Zero<T> + One<T> + Two<T> + From<u16> + Copy + Neg<Output = T> + Sub<Output = T> + Add<Output = T>,
+    T: Div<Output = T>
+        + Zero<T>
+        + One<T>
+        + Two<T>
+        + From<u16>
+        + Copy
+        + Neg<Output = T>
+        + Sub<Output = T>
+        + Add<Output = T>,
 {
     let rml = right - left;
     let rpl = right + left;

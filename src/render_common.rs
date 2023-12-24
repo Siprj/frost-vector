@@ -1,7 +1,19 @@
+use crate::{
+    constants::NUMBER_OF_FRAMES,
+    math,
+    raw::Raw,
+    windowed_device::{self, WindowedDevice},
+};
 use log::info;
-use wgpu::{BindGroup, Buffer, util::DeviceExt, BindGroupLayout};
-use winit::{event_loop::EventLoop, window::Window, event::Event, event::WindowEvent::{Resized, CloseRequested, KeyboardInput, MouseInput, RedrawRequested}, dpi::PhysicalSize, keyboard::NamedKey};
-use crate::{windowed_device::WindowedDevice, math, constants::NUMBER_OF_FRAMES, raw::Raw};
+use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
+use winit::{
+    dpi::PhysicalSize,
+    event::Event,
+    event::WindowEvent::{CloseRequested, KeyboardInput, MouseInput, RedrawRequested, Resized},
+    event_loop::EventLoop,
+    keyboard::NamedKey,
+    window::Window,
+};
 
 pub struct RendererRunner {
     wd: WindowedDevice,
@@ -13,14 +25,21 @@ pub struct RendererRunner {
 
 impl RendererRunner {
     pub async fn new(renderers: Vec<Box<dyn RenderBase>>, event_loop: &mut EventLoop<()>) -> Self {
-        let window = Window::new(&event_loop).unwrap();
+        let window = Window::new(event_loop).unwrap();
         let mut wd = WindowedDevice::new(window).await;
 
-        let (projection_buffer, projection_bind_group_layout, projection_bind_group) = Self::create_projection(&mut wd);
-        Self {wd, projection_bind_group, projection_buffer, projection_bind_group_layout, renderers}
+        let (projection_buffer, projection_bind_group_layout, projection_bind_group) =
+            Self::create_projection(&mut wd);
+        Self {
+            wd,
+            projection_bind_group,
+            projection_buffer,
+            projection_bind_group_layout,
+            renderers,
+        }
     }
 
-    fn create_projection(wd: &mut WindowedDevice) -> (Buffer, BindGroupLayout, BindGroup){
+    fn create_projection(wd: &mut WindowedDevice) -> (Buffer, BindGroupLayout, BindGroup) {
         let size = wd.window.inner_size();
         let perspective_matrix: math::Matrix4x4<f32> =
             math::ortho(0.0, size.width as f32, 0.0, size.height as f32, 0.0, 1.0);
@@ -59,68 +78,110 @@ impl RendererRunner {
             label: Some("Projection Bind Group"),
         });
 
-        (projection_buffer, projection_bind_group_layout, projection_bind_group)
+        (
+            projection_buffer,
+            projection_bind_group_layout,
+            projection_bind_group,
+        )
     }
 
     pub fn run(&mut self, event_loop: EventLoop<()>) {
         let mut render_count: u32 = 0;
-        let current_renderer_base : Box<dyn RenderBase> = self.renderers.pop().expect("Renderer runner needs to be initialized with not enpty list of renderes!");
+        let current_renderer_base: Box<dyn RenderBase> = self
+            .renderers
+            .pop()
+            .expect("Renderer runner needs to be initialized with not enpty list of renderes!");
         info!("preparing the renderer instance");
-        let mut current_renderer: Box<dyn PreparedRenderBase> = current_renderer_base.prepare(&mut self.wd, &self.projection_bind_group_layout);
+        let mut current_renderer: Box<dyn PreparedRenderBase> =
+            current_renderer_base.prepare(&mut self.wd, &self.projection_bind_group_layout);
         info!("preparation of the  the renderer instance is done");
 
-
-        event_loop.run(move |event, elwt| {
-            if let Event::WindowEvent{event, ..} = event {
-                match event {
-                    Resized(new_size) => {
-                        info!("updating the projection matric after resize");
-                        self.update_projection(new_size);
-                    },
-                    CloseRequested => elwt.exit(),
-                    KeyboardInput { device_id: _, event, is_synthetic: _ } => {
-                        info!("Escape was pressed; terminating the event loop");
-                        if let winit::keyboard::Key::Named(NamedKey::Escape) = event.logical_key {
-                            elwt.exit()
+        event_loop
+            .run(move |event, elwt| {
+                if let Event::WindowEvent { event, .. } = event {
+                    match event {
+                        Resized(new_size) => {
+                            info!("updating the projection matric after resize");
+                            self.wd.config.width = new_size.width;
+                            self.wd.config.height = new_size.height;
+                            self.wd.surface.configure(&self.wd.device, &self.wd.config);
+                            self.update_projection(new_size);
+                            self.wd.window.request_redraw();
                         }
-                    },
-                    MouseInput { device_id: _, state: _, button: _ } => (),
-                    RedrawRequested => {
-                        info!("rendering as per the RedrawRequested was received");
-                        current_renderer.render(&mut self.wd, &self.projection_bind_group);
-                        render_count += 1;
-                        if render_count > NUMBER_OF_FRAMES {
-                            render_count = 0;
-                            // TODO:
-                            //  1. Publish statistics
-                            //  2. Reset statistics
-                            //  3. Switch to different renderer
-                            todo!("");
+                        CloseRequested => elwt.exit(),
+                        KeyboardInput {
+                            device_id: _,
+                            event,
+                            is_synthetic: _,
+                        } => {
+                            info!("Escape was pressed; terminating the event loop");
+                            if let winit::keyboard::Key::Named(NamedKey::Escape) = event.logical_key
+                            {
+                                elwt.exit()
+                            }
+                        }
+                        MouseInput {
+                            device_id: _,
+                            state: _,
+                            button: _,
+                        } => (),
+                        RedrawRequested => {
+                            info!("rendering as per the RedrawRequested was received");
+                            current_renderer.render(&mut self.wd, &self.projection_bind_group);
+                            render_count += 1;
+                            self.wd.window.request_redraw();
+                            if render_count > NUMBER_OF_FRAMES {
+                                render_count = 0;
+                                // TODO:
+                                //  1. Publish statistics
+                                //  2. Reset statistics
+                                //  3. Switch to different renderer
+                                todo!("");
+                            }
+                        }
+                        _ => {
+                            info!("UNKNOWN WINDOW EVENT RECEIVED: {:?}", event);
                         }
                     }
-                    _ => ()
+                } else {
+                    info!("UNKNOWN EVENT RECEIVED: {:?}", event);
                 }
-            }
-        }).unwrap();
+            })
+            .unwrap();
     }
 }
 
 impl RendererRunner {
     fn update_projection(&mut self, new_size: PhysicalSize<u32>) {
-        let projection_matrix: math::Matrix4x4<f32> =
-            math::ortho(0.0, new_size.width as f32, 0.0, new_size.height as f32, 0.0, 1.0);
-        self.wd.queue.write_buffer(
-            &self.projection_buffer,
-            0,
-            projection_matrix.get_raw(),
+        let projection_matrix: math::Matrix4x4<f32> = math::ortho(
+            0.0,
+            new_size.width as f32,
+            0.0,
+            new_size.height as f32,
+            0.0,
+            1.0,
         );
+        self.wd
+            .queue
+            .write_buffer(&self.projection_buffer, 0, projection_matrix.get_raw());
     }
 }
 
-
 pub trait RenderBase {
-    fn prepare(&self, windowed_device: &mut WindowedDevice, projection_bind_group_layout: &BindGroupLayout) -> Box<dyn PreparedRenderBase>;
+    fn prepare(
+        &self,
+        windowed_device: &mut WindowedDevice,
+        projection_bind_group_layout: &BindGroupLayout,
+    ) -> Box<dyn PreparedRenderBase>;
 }
+
 pub trait PreparedRenderBase {
     fn render(&mut self, windowed_device: &mut WindowedDevice, perspective_bind_group: &BindGroup);
+}
+
+pub trait RenderBase2 {
+    async fn prepare(&self, event_loop: &mut EventLoop<()>) -> Box<dyn PreparedRenderBase2>;
+}
+pub trait PreparedRenderBase2 {
+    fn render(&mut self, event_loop: EventLoop<()>);
 }

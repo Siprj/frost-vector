@@ -4,9 +4,9 @@ pub mod renderer_1;
 pub mod renderer_1_test;
 //pub mod renderer_2;
 //pub mod renderer_2_test;
+pub mod constants;
+pub mod render_common;
+pub mod renderer_test_triange;
 pub mod statistics;
 mod texture;
 pub mod windowed_device;
-pub mod constants;
-pub mod render_common;
-

@@ -1,35 +1,40 @@
 use std::collections::{HashMap, VecDeque};
+use std::convert::AsRef;
 use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
-use std::sync::atomic::{Ordering, AtomicUsize};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Mutex, OnceLock};
 use std::vec::Vec;
-use std::convert::AsRef;
 
 #[derive(Debug, serde::Serialize)]
 struct Entry {
     frame: usize,
-    value: f64
+    value: f64,
 }
 
 struct DataStream {
-    stream: VecDeque<Entry>
+    stream: VecDeque<Entry>,
 }
 
 #[derive(Copy, Debug, Clone)]
-pub struct DataStreamId { id: usize}
+pub struct DataStreamId {
+    id: usize,
+}
 
 static STATISTICS_FRAME: AtomicUsize = AtomicUsize::new(0); // current frame
 
 struct Statistics {
     id_by_name: HashMap<String, DataStreamId>,
-    data_streams: Vec<DataStream>
+    data_streams: Vec<DataStream>,
 }
 
 impl Statistics {
     fn new() -> Self {
-        Statistics {id_by_name: HashMap::new(), data_streams: Vec::new()}
+        Statistics {
+            id_by_name: HashMap::new(),
+            data_streams: Vec::new(),
+        }
     }
 
     fn get_data_stream_id(&mut self, name: &str) -> DataStreamId {
@@ -38,9 +43,11 @@ impl Statistics {
             None => {
                 let id = self.data_streams.len();
                 self.id_by_name.insert(name.into(), DataStreamId { id });
-                self.data_streams.push(DataStream{ stream: VecDeque::new()});
-                DataStreamId{ id }
-            },
+                self.data_streams.push(DataStream {
+                    stream: VecDeque::new(),
+                });
+                DataStreamId { id }
+            }
         }
     }
 
@@ -51,7 +58,9 @@ impl Statistics {
 
     fn report_value(&mut self, stream_id: DataStreamId, value: f64) {
         let frame = STATISTICS_FRAME.load(Ordering::Relaxed);
-        self.data_streams[stream_id.id].stream.push_back(Entry{frame, value});
+        self.data_streams[stream_id.id]
+            .stream
+            .push_back(Entry { frame, value });
     }
 
     fn restart(&mut self) {
@@ -97,7 +106,7 @@ pub fn into_csv_files<P: AsRef<Path>>(path: P) {
     let statistics = get_initialized_statistics().lock().unwrap();
     for (name, index) in statistics.id_by_name.iter() {
         let mut csv_path_name: PathBuf = path.as_ref().into();
-        csv_path_name.push(name.replace(" ", "_"));
+        csv_path_name.push(name.replace(' ', "_"));
         csv_path_name.set_extension("csv");
 
         println!("csv_path_name: {}", csv_path_name.display());
@@ -112,15 +121,22 @@ pub fn into_csv_files<P: AsRef<Path>>(path: P) {
 
 #[derive(Debug, serde::Serialize)]
 struct StatisticsJson<'a> {
-    statistics: &'a HashMap<&'a String, &'a VecDeque<Entry>>
+    statistics: &'a HashMap<&'a String, &'a VecDeque<Entry>>,
 }
 
 pub fn save_as_json<P: AsRef<Path>>(path: P) {
     // TODO: Think about error handling... unwrap everywhere is not cool...
     let statistics = get_initialized_statistics().lock().unwrap();
-    let statistics_fmap = statistics.id_by_name.iter().map(|(name, index)| (name, &statistics.data_streams[index.id].stream)).collect();
+    let statistics_fmap = statistics
+        .id_by_name
+        .iter()
+        .map(|(name, index)| (name, &statistics.data_streams[index.id].stream))
+        .collect();
 
-    let json_string = serde_json::to_string(&StatisticsJson{statistics: &statistics_fmap}).unwrap();
+    let json_string = serde_json::to_string(&StatisticsJson {
+        statistics: &statistics_fmap,
+    })
+    .unwrap();
     fs::create_dir_all(path.as_ref().parent().unwrap()).unwrap();
     let mut json_file = fs::File::create(path).unwrap();
     json_file.write_all(json_string.as_bytes()).unwrap();

@@ -22,7 +22,7 @@ impl<T: Sized + Gpu> Raw for [T] {
         unsafe {
             core::slice::from_raw_parts(
                 (self as *const [T]) as *const u8,
-                size_of::<T>() * self.len(),
+                std::mem::size_of_val(self),
             )
         }
     }
