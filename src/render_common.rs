@@ -2,7 +2,7 @@ use crate::{
     constants::NUMBER_OF_FRAMES,
     math,
     raw::Raw,
-    windowed_device::{self, WindowedDevice},
+    windowed_device::WindowedDevice,
 };
 use log::info;
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
@@ -177,11 +177,4 @@ pub trait RenderBase {
 
 pub trait PreparedRenderBase {
     fn render(&mut self, windowed_device: &mut WindowedDevice, perspective_bind_group: &BindGroup);
-}
-
-pub trait RenderBase2 {
-    async fn prepare(&self, event_loop: &mut EventLoop<()>) -> Box<dyn PreparedRenderBase2>;
-}
-pub trait PreparedRenderBase2 {
-    fn render(&mut self, event_loop: EventLoop<()>);
 }

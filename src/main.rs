@@ -1,7 +1,7 @@
 use frost_vector::{
-    render_common::{PreparedRenderBase2, RenderBase2, RendererRunner},
+    render_common::RendererRunner,
     renderer_1_test,
-    renderer_test_triange::{RendererTestTriangle, RendererTestTriangle2},
+    renderer_test_triange::RendererTestTriangle,
 };
 use log::{debug, info};
 //use frost_vector::renderer_2_test;
@@ -17,8 +17,8 @@ fn main() {
         circles.push((
             rand::random::<f32>() * 800_f32,
             rand::random::<f32>() * 800_f32,
-            rand::random::<f32>() * 5_f32,
-            1_f32 + rand::random::<f32>() * 2_f32,
+            rand::random::<f32>() * 50_f32,
+            1_f32 + rand::random::<f32>() * 10_f32,
         ));
     }
 
@@ -37,26 +37,18 @@ fn main() {
     let event_loop = EventLoop::new().expect("Event loop");
 
     //    pollster::block_on(renderer_1_test::run(&mut event_loop, &circles, &rectangles));
-    //
     //    statistics::save_as_json("./statistics/renderer_1.json");
     //    statistics::into_csv_files("./statistics/renderer_1/");
     //    statistics::restart_statistics();
 
-    // pollster::block_on(renderer_1_test::run(event_loop, &circles, &rectangles));
+     pollster::block_on(renderer_1_test::run(event_loop, &circles));
     //    statistics::save_as_json("./statistics/renderer_2.json");
     //    statistics::into_csv_files("./statistics/renderer_2/");
     //    statistics::restart_statistics();
-    //pollster::block_on(test_run(event_loop));
-    pollster::block_on(test_run2(event_loop));
-}
-
-async fn test_run(mut event_loop: EventLoop<()>) {
-    let mut test_triable_renderer: Box<dyn PreparedRenderBase2> =
-        RendererTestTriangle {}.prepare(&mut event_loop).await;
-    test_triable_renderer.render(event_loop);
+    //pollster::block_on(test_run2(event_loop));
 }
 
 async fn test_run2(mut event_loop: EventLoop<()>) {
-    let mut renderrer_runner = RendererRunner::new(vec![Box::new(RendererTestTriangle2 {})], &mut event_loop).await;
+    let mut renderrer_runner = RendererRunner::new(vec![Box::new(RendererTestTriangle {})], &mut event_loop).await;
     renderrer_runner.run(event_loop);
 }
