@@ -1,14 +1,17 @@
-use crate::math;
 use crate::raw::{Gpu, Raw};
 use crate::render_common::{PreparedRenderBase, RenderBase};
 use crate::statistics;
 use crate::windowed_device::WindowedDevice;
+use crate::{math, texture};
 use log::debug;
 use std::time::Instant;
 use std::vec::Vec;
 use std::{iter, mem};
 use wgpu::util::DeviceExt;
-use wgpu::{include_wgsl, BindGroup, BindGroupLayout, StoreOp};
+use wgpu::{
+    include_wgsl, BindGroup, BindGroupLayout, Extent3d, StoreOp, TextureDescriptor,
+    TextureViewDescriptor,
+};
 
 #[derive(Debug, PartialEq, Clone)]
 #[repr(C, packed)]
@@ -185,7 +188,7 @@ impl RenderBase for Renderer1 {
                     },
                     depth_stencil: None,
                     multisample: wgpu::MultisampleState {
-                        count: 1,
+                        count: 4,
                         mask: !0,
                         alpha_to_coverage_enabled: false,
                     },
@@ -233,13 +236,38 @@ impl RenderBase for Renderer1 {
 
 impl PreparedRenderBase for Renderer1Prepared {
     fn render(&mut self, windowed_device: &mut WindowedDevice, perspective_bind_group: &BindGroup) {
+        let multi_sample_texture = windowed_device.device.create_texture(&TextureDescriptor {
+            label: Some(&"msaa texture"),
+            size: Extent3d {
+                width: windowed_device.config.width,
+                height: windowed_device.config.height,
+                depth_or_array_layers: 1,
+            },
+            mip_level_count: 1,
+            sample_count: 4,
+            dimension: wgpu::TextureDimension::D2,
+            format: windowed_device.config.format,
+            usage: wgpu::TextureUsages::RENDER_ATTACHMENT,
+            view_formats: &[windowed_device.config.format],
+        });
+
+        let multi_sample_view = multi_sample_texture.create_view(&TextureViewDescriptor {
+            label: Some(&"msaa view"),
+            format: Some(windowed_device.config.format),
+            dimension: Some(wgpu::TextureViewDimension::D2),
+            aspect: wgpu::TextureAspect::All,
+            base_mip_level: 0,
+            mip_level_count: Some(1),
+            base_array_layer: 0,
+            array_layer_count: Some(1),
+        });
         let (mut encoder, view, output) = windowed_device.prepare_encoder().unwrap();
         {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Rectangle Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &view,
-                    resolve_target: None,
+                    view: &multi_sample_view,
+                    resolve_target: Some(&view),
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
@@ -261,7 +289,6 @@ impl PreparedRenderBase for Renderer1Prepared {
                 perspective_bind_group,
             )
             .unwrap();
-
         }
 
         windowed_device.queue.submit(iter::once(encoder.finish()));
