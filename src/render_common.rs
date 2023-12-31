@@ -3,7 +3,7 @@ use log::info;
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
 use winit::{
     dpi::PhysicalSize,
-    event::Event,
+    event::{Event, ElementState},
     event::WindowEvent::{CloseRequested, KeyboardInput, MouseInput, RedrawRequested, Resized},
     event_loop::EventLoop,
     keyboard::NamedKey,
@@ -113,6 +113,10 @@ impl RendererRunner {
                             if let winit::keyboard::Key::Named(NamedKey::Escape) = event.logical_key
                             {
                                 elwt.exit()
+                            } else {
+                                if event.state == ElementState::Pressed {
+                                    current_renderer.key_input(&mut self.wd, &self.projection_bind_group_layout, event.physical_key);
+                                }
                             }
                         }
                         MouseInput {
@@ -171,5 +175,11 @@ pub trait RenderBase {
 }
 
 pub trait PreparedRenderBase {
+    fn key_input(
+        &mut self,
+        windowed_device: &mut WindowedDevice,
+        projection_bind_group_layout: &BindGroupLayout,
+        key: winit::keyboard::PhysicalKey,
+    );
     fn render(&mut self, windowed_device: &mut WindowedDevice, perspective_bind_group: &BindGroup);
 }

@@ -12,6 +12,7 @@ use wgpu::{
     include_wgsl, BindGroup, BindGroupLayout, Extent3d, StoreOp, TextureDescriptor,
     TextureViewDescriptor,
 };
+use winit::keyboard::{KeyCode, NamedKey};
 
 #[derive(Debug, PartialEq, Clone)]
 #[repr(C, packed)]
@@ -107,6 +108,7 @@ struct Renderer1Prepared {
     circle_index_buffer: wgpu::Buffer,
     circle_pipeline: wgpu::RenderPipeline,
     circle_instances_buffer: wgpu::Buffer,
+    use_msaa: bool,
 }
 
 #[derive(Debug, Default)]
@@ -129,73 +131,80 @@ impl Renderer1 {
     }
 }
 
+fn create_circle_pipeline(
+    windowed_device: &mut WindowedDevice,
+    projection_bind_group_layout: &BindGroupLayout,
+    sample_count: u32,
+) -> wgpu::RenderPipeline {
+    let circle_shader = windowed_device
+        .device
+        .create_shader_module(include_wgsl!("shaders/renderer_1_circle.wgsl"));
+    let render_pipeline_layout =
+        windowed_device
+            .device
+            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                label: Some("Render Pipeline Layout"),
+                bind_group_layouts: &[projection_bind_group_layout],
+                push_constant_ranges: &[],
+            });
+    windowed_device
+        .device
+        .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Circle Render Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &circle_shader,
+                entry_point: "vs_main",
+                buffers: &[Vertex::buffer_description(), Circle::buffer_description()],
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &circle_shader,
+                entry_point: "fs_main",
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: windowed_device.config.format,
+                    blend: Some(wgpu::BlendState {
+                        color: wgpu::BlendComponent::REPLACE,
+                        alpha: wgpu::BlendComponent::REPLACE,
+                    }),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Cw,
+                cull_mode: Some(wgpu::Face::Back),
+                // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
+                // or Features::POLYGON_MODE_POINT
+                polygon_mode: wgpu::PolygonMode::Fill,
+                // Requires Features::DEPTH_CLIP_CONTROL
+                unclipped_depth: false,
+                // Requires Features::CONSERVATIVE_RASTERIZATION
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: sample_count,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            // If the pipeline will be used with a multiview render pass, this
+            // indicates how many array layers the attachments will have.
+            multiview: None,
+        })
+}
+
 impl RenderBase for Renderer1 {
     fn prepare(
         &self,
         windowed_device: &mut WindowedDevice,
         projection_bind_group_layout: &BindGroupLayout,
     ) -> Box<dyn PreparedRenderBase> {
-        let circle_shader = windowed_device
-            .device
-            .create_shader_module(include_wgsl!("shaders/renderer_1_circle.wgsl"));
-
         let size = windowed_device.window.inner_size();
         math::ortho(0.0, size.width as f32, 0.0, size.height as f32, 0.0, 1.0);
-        let render_pipeline_layout =
-            windowed_device
-                .device
-                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                    label: Some("Render Pipeline Layout"),
-                    bind_group_layouts: &[projection_bind_group_layout],
-                    push_constant_ranges: &[],
-                });
 
         let circle_pipeline =
-            windowed_device
-                .device
-                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                    label: Some("Circle Render Pipeline"),
-                    layout: Some(&render_pipeline_layout),
-                    vertex: wgpu::VertexState {
-                        module: &circle_shader,
-                        entry_point: "vs_main",
-                        buffers: &[Vertex::buffer_description(), Circle::buffer_description()],
-                    },
-                    fragment: Some(wgpu::FragmentState {
-                        module: &circle_shader,
-                        entry_point: "fs_main",
-                        targets: &[Some(wgpu::ColorTargetState {
-                            format: windowed_device.config.format,
-                            blend: Some(wgpu::BlendState {
-                                color: wgpu::BlendComponent::REPLACE,
-                                alpha: wgpu::BlendComponent::REPLACE,
-                            }),
-                            write_mask: wgpu::ColorWrites::ALL,
-                        })],
-                    }),
-                    primitive: wgpu::PrimitiveState {
-                        topology: wgpu::PrimitiveTopology::TriangleList,
-                        strip_index_format: None,
-                        front_face: wgpu::FrontFace::Cw,
-                        cull_mode: Some(wgpu::Face::Back),
-                        // Setting this to anything other than Fill requires Features::POLYGON_MODE_LINE
-                        // or Features::POLYGON_MODE_POINT
-                        polygon_mode: wgpu::PolygonMode::Fill,
-                        // Requires Features::DEPTH_CLIP_CONTROL
-                        unclipped_depth: false,
-                        // Requires Features::CONSERVATIVE_RASTERIZATION
-                        conservative: false,
-                    },
-                    depth_stencil: None,
-                    multisample: wgpu::MultisampleState {
-                        count: 4,
-                        mask: !0,
-                        alpha_to_coverage_enabled: false,
-                    },
-                    // If the pipeline will be used with a multiview render pass, this
-                    // indicates how many array layers the attachments will have.
-                    multiview: None,
-                });
+            create_circle_pipeline(windowed_device, projection_bind_group_layout, 1);
 
         let circle_vertex_buffer =
             windowed_device
@@ -230,6 +239,7 @@ impl RenderBase for Renderer1 {
             circle_index_buffer,
             circle_instances_buffer,
             circles: self.circles.clone(),
+            use_msaa: false,
         })
     }
 }
@@ -266,8 +276,12 @@ impl PreparedRenderBase for Renderer1Prepared {
             let mut render_pass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
                 label: Some("Rectangle Render Pass"),
                 color_attachments: &[Some(wgpu::RenderPassColorAttachment {
-                    view: &multi_sample_view,
-                    resolve_target: Some(&view),
+                    view: if self.use_msaa {
+                        &multi_sample_view
+                    } else {
+                        &view
+                    },
+                    resolve_target: if self.use_msaa { Some(&view) } else { None },
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
                             r: 0.0,
@@ -293,6 +307,27 @@ impl PreparedRenderBase for Renderer1Prepared {
 
         windowed_device.queue.submit(iter::once(encoder.finish()));
         output.present();
+    }
+
+    fn key_input(
+        &mut self,
+        windowed_device: &mut WindowedDevice,
+        projection_bind_group_layout: &BindGroupLayout,
+        key: winit::keyboard::PhysicalKey,
+    ) {
+        use winit::keyboard::PhysicalKey::*;
+        match key {
+            Code(KeyCode::KeyA) => {
+                self.use_msaa = !self.use_msaa;
+                println!("msaa toggled: {}", self.use_msaa);
+                self.circle_pipeline = create_circle_pipeline(
+                    windowed_device,
+                    projection_bind_group_layout,
+                    if self.use_msaa { 4 } else { 1 },
+                );
+            }
+            _ => {}
+        }
     }
 }
 

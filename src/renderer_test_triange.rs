@@ -105,4 +105,13 @@ impl PreparedRenderBase for PreparedRendererTestTriangle {
         windowed_device.queue.submit(iter::once(encoder.finish()));
         surface.present();
     }
+
+    fn key_input(
+        &mut self,
+        windowed_device: &mut WindowedDevice,
+        projection_bind_group_layout: &BindGroupLayout,
+        key: winit::keyboard::PhysicalKey,
+    ) {
+        todo!()
+    }
 }
