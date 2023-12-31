@@ -1,9 +1,4 @@
-use crate::{
-    constants::NUMBER_OF_FRAMES,
-    math,
-    raw::Raw,
-    windowed_device::WindowedDevice,
-};
+use crate::{constants::NUMBER_OF_FRAMES, math, raw::Raw, windowed_device::WindowedDevice};
 use log::info;
 use wgpu::{util::DeviceExt, BindGroup, BindGroupLayout, Buffer};
 use winit::{

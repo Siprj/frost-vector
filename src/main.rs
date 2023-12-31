@@ -1,7 +1,5 @@
 use frost_vector::{
-    render_common::RendererRunner,
-    renderer_1_test,
-    renderer_test_triange::RendererTestTriangle,
+    render_common::RendererRunner, renderer_1_test, renderer_test_triange::RendererTestTriangle,
 };
 use log::{debug, info};
 //use frost_vector::renderer_2_test;
@@ -41,7 +39,7 @@ fn main() {
     //    statistics::into_csv_files("./statistics/renderer_1/");
     //    statistics::restart_statistics();
 
-     pollster::block_on(renderer_1_test::run(event_loop, &circles));
+    pollster::block_on(renderer_1_test::run(event_loop, &circles));
     //    statistics::save_as_json("./statistics/renderer_2.json");
     //    statistics::into_csv_files("./statistics/renderer_2/");
     //    statistics::restart_statistics();
@@ -49,6 +47,7 @@ fn main() {
 }
 
 async fn test_run2(mut event_loop: EventLoop<()>) {
-    let mut renderrer_runner = RendererRunner::new(vec![Box::new(RendererTestTriangle {})], &mut event_loop).await;
+    let mut renderrer_runner =
+        RendererRunner::new(vec![Box::new(RendererTestTriangle {})], &mut event_loop).await;
     renderrer_runner.run(event_loop);
 }

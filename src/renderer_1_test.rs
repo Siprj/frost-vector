@@ -4,10 +4,7 @@ use winit::event_loop::EventLoop;
 use crate::render_common::RendererRunner;
 use crate::renderer_1::Renderer1;
 
-pub async fn run(
-    mut event_loop: EventLoop<()>,
-    circles: &Vec<(f32, f32, f32, f32)>,
-) {
+pub async fn run(mut event_loop: EventLoop<()>, circles: &Vec<(f32, f32, f32, f32)>) {
     info!("running the renderer_1 test");
     let mut renderer = Renderer1::default();
     info!("Renderer1 created");

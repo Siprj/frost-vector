@@ -1,11 +1,11 @@
 use std::iter;
 
 use wgpu::{
-    include_wgsl, PipelineLayout, RenderPipeline, ShaderModule, BindGroupLayout, BindGroup,
+    include_wgsl, BindGroup, BindGroupLayout, PipelineLayout, RenderPipeline, ShaderModule,
 };
 
 use crate::{
-    render_common::{RenderBase, PreparedRenderBase},
+    render_common::{PreparedRenderBase, RenderBase},
     windowed_device::WindowedDevice,
 };
 
@@ -30,34 +30,36 @@ impl RenderBase for RendererTestTriangle {
             .device
             .create_shader_module(include_wgsl!("shaders/renderer_test_triangle.wgsl"));
 
-        let pipeline_layout = windowed_device
-            .device
-            .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
-                label: None,
-                bind_group_layouts: &[],
-                push_constant_ranges: &[],
-            });
+        let pipeline_layout =
+            windowed_device
+                .device
+                .create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+                    label: None,
+                    bind_group_layouts: &[],
+                    push_constant_ranges: &[],
+                });
 
-        let render_pipeline = windowed_device
-            .device
-            .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-                label: None,
-                layout: Some(&pipeline_layout),
-                vertex: wgpu::VertexState {
-                    module: &shader,
-                    entry_point: "vs_main",
-                    buffers: &[],
-                },
-                fragment: Some(wgpu::FragmentState {
-                    module: &shader,
-                    entry_point: "fs_main",
-                    targets: &[Some(windowed_device.config.format.into())],
-                }),
-                primitive: wgpu::PrimitiveState::default(),
-                depth_stencil: None,
-                multisample: wgpu::MultisampleState::default(),
-                multiview: None,
-            });
+        let render_pipeline =
+            windowed_device
+                .device
+                .create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+                    label: None,
+                    layout: Some(&pipeline_layout),
+                    vertex: wgpu::VertexState {
+                        module: &shader,
+                        entry_point: "vs_main",
+                        buffers: &[],
+                    },
+                    fragment: Some(wgpu::FragmentState {
+                        module: &shader,
+                        entry_point: "fs_main",
+                        targets: &[Some(windowed_device.config.format.into())],
+                    }),
+                    primitive: wgpu::PrimitiveState::default(),
+                    depth_stencil: None,
+                    multisample: wgpu::MultisampleState::default(),
+                    multiview: None,
+                });
 
         Box::new(PreparedRendererTestTriangle {
             shader,
@@ -68,7 +70,11 @@ impl RenderBase for RendererTestTriangle {
 }
 
 impl PreparedRenderBase for PreparedRendererTestTriangle {
-    fn render(&mut self, windowed_device: &mut WindowedDevice, _perspective_bind_group: &BindGroup) {
+    fn render(
+        &mut self,
+        windowed_device: &mut WindowedDevice,
+        _perspective_bind_group: &BindGroup,
+    ) {
         let (mut encoder, view, surface) = windowed_device.prepare_encoder().unwrap();
 
         {
